@@ -1,11 +1,12 @@
 {
   "name": "knockout-sunday-arena",
-  "version": "1.0.0",
-  "description": "Knockout Sunday District Battle Arena — Public Dashboard + Shared Admin Server for Netlify",
+  "version": "2.0.0",
+  "description": "Knockout Blitz District Battle Arena — Public Dashboard + Shared Admin Server for Netlify",
   "private": true,
   "scripts": {
     "start": "node dev-server.js",
-    "dev": "node dev-server.js"
+    "dev": "node dev-server.js",
+    "test": "node --test test/knockout-blitz.test.js"
   },
   "dependencies": {
     "@netlify/blobs": "^8.1.0"

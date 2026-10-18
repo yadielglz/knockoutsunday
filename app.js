@@ -1,86 +1,31 @@
 /**
- * 🥊 KNOCKOUT SUNDAY! 🔥 — District Battle Arena
- * Features:
- *   - "Which Store Are You?" Store Identity Picker + Store Battle Arena
- *   - 5-Minute Live Battle Window (Admin opens Knockouts for 5 minutes with live countdown across all viewers)
- *   - Admin Command Center (PIN-protected manual sales lines, Knockouts, Revives, Broadcasts)
- *   - Live Google Sheet + Netlify Server State sync
+ * 🥊 KNOCKOUT BLITZ 🔥 — Frontend Application Client
+ * Authoritative Server State Client (America/New_York Timezone)
+ * Browser storage is used strictly as a read-only display cache and session token store.
+ * Failed/offline requests NEVER create local combat actions.
  */
 
-const DEFAULT_SHEET_ID = '1hJuUd6UkzfWBeTywVM6Yi5g0BxJodsNLe0XHgt-9nOQ';
-const DEFAULT_GID = '1896995460';
-const LOCAL_CACHE_KEY = 'knockout_sunday_server_cache_v3';
-const ADMIN_PIN_STORAGE_KEY = 'knockout_sunday_admin_pin';
-const MY_STORE_STORAGE_KEY = 'knockout_sunday_my_store_id';
+const CACHE_KEY = 'knockout_blitz_view_cache_v2';
+const ADMIN_TOKEN_KEY = 'knockout_blitz_admin_token';
+const STORE_AUTH_KEY = 'knockout_blitz_store_auth';
 
-const INITIAL_SHEET_SNAPSHOT = [
-  { id: '843D', name: '843D - El Cartel', emoji: '🎩', nrGoal: 1281, netRev: 95, accGoal: 349, acc: 50, postGoal: 7, totalPP: 1, vl: 1, bts: 0, hsi: 0, visa: 0, preOrders: 1 },
-  { id: '693D', name: '693D - Spartans', emoji: '⚔️', nrGoal: 1316, netRev: 0, accGoal: 371, acc: 0, postGoal: 9, totalPP: 0, vl: 0, bts: 0, hsi: 0, visa: 0, preOrders: 0 },
-  { id: '561D', name: '561D - Top Guns', emoji: '✈️', nrGoal: 1442, netRev: 456, accGoal: 300, acc: 0, postGoal: 8, totalPP: 3, vl: 3, bts: 0, hsi: 0, visa: 0, preOrders: 0 },
-  { id: '5383', name: '5383 - Pink Panthers', emoji: '🐾', nrGoal: 1474, netRev: 1305, accGoal: 452, acc: 120, postGoal: 8, totalPP: 6, vl: 5, bts: 1, hsi: 0, visa: 0, preOrders: 0 },
-  { id: '769D', name: '769D - Pink Mafia', emoji: '🕶️', nrGoal: 1688, netRev: 0, accGoal: 431, acc: 0, postGoal: 11, totalPP: 0, vl: 0, bts: 0, hsi: 0, visa: 0, preOrders: 0 },
-  { id: '5733', name: '5733 - Undefeated', emoji: '👑', nrGoal: 972, netRev: 779, accGoal: 263, acc: 115, postGoal: 6, totalPP: 7, vl: 2, bts: 4, hsi: 1, visa: 0, preOrders: 0 },
-  { id: '582D', name: '582D - Magenta Warriors', emoji: '🛡️', nrGoal: 956, netRev: 0, accGoal: 304, acc: 0, postGoal: 5, totalPP: 0, vl: 0, bts: 0, hsi: 0, visa: 0, preOrders: 0 },
-  { id: '892E', name: '892E - Avengers', emoji: '⚡', nrGoal: 710, netRev: 0, accGoal: 169, acc: 0, postGoal: 5, totalPP: 0, vl: 0, bts: 0, hsi: 0, visa: 0, preOrders: 0 },
-  { id: '697D', name: '697D - Wolfpack', emoji: '🐺', nrGoal: 1369, netRev: 184, accGoal: 487, acc: 20, postGoal: 10, totalPP: 2, vl: 2, bts: 0, hsi: 0, visa: 0, preOrders: 0 }
-];
+const ROSTER_ORDER = ['843D', '693D', '561D', '5383', '769D', '5733', '582D', '892E', '697D'];
 
-const STORE_EMOJIS = {
-  '843D': '🎩',
-  '693D': '⚔️',
-  '561D': '✈️',
-  '5383': '🐾',
-  '769D': '🕶️',
-  '5733': '👑',
-  '582D': '🛡️',
-  '892E': '⚡',
-  '697D': '🐺'
-};
+let serverState = null;
+let serverClockOffsetMs = 0;
 
-const LINE_LABELS = {
-  vl: { name: 'VL Activation', ptsUnit: '1 pt', emoji: '📱' },
-  beyondVl: { name: 'Beyond VL Activation', ptsUnit: '2 pts', emoji: '💥' },
-  watches: { name: 'Watch (BTS)', ptsUnit: '1 pt', emoji: '⌚' },
-  tablets: { name: 'Tablet (BTS)', ptsUnit: '1 pt', emoji: '📟' },
-  hsi: { name: 'HINT (HSI)', ptsUnit: '2 pts', emoji: '🏠' },
-  acc: { name: 'Accessories $', ptsUnit: '$100 = 1 pt', emoji: '🎧' },
-  bonusPts: { name: 'Bonus Points', ptsUnit: 'Direct pts', emoji: '⭐' }
-};
-
-let state = {
-  version: 1,
-  districtName: 'PHOENIX DISTRICT',
-  sheetStores: JSON.parse(JSON.stringify(INITIAL_SHEET_SNAPSHOT)),
-  customStores: [],
-  announcement: { text: '', active: false, updatedAt: null },
-  battleWindow: {
-    active: false,
-    startedAt: null,
-    endsAt: null,
-    durationSeconds: 300
-  },
-  manualLines: {},
-  salesLog: [],
-  combatLog: [],
-  settings: {
-    koCost: 1,
-    reviveCost: 1,
-    koCanAttack: false,
-    sheetUrl: `https://docs.google.com/spreadsheets/d/${DEFAULT_SHEET_ID}/edit?gid=${DEFAULT_GID}`,
-    soundEnabled: true
-  },
-  auth: {
-    isAdmin: false,
-    pin: '',
-    myStoreId: ''
-  },
-  ui: {
-    filter: 'all',
-    sortBy: 'available_desc',
-    commandMode: 'lines',
-    lastCombatEventId: null,
-    wasBattleWindowOpen: false
-  }
+let clientSession = {
+  isAdmin: false,
+  adminToken: '',
+  adminPin: '',
+  storeId: '',
+  storeToken: '',
+  soundEnabled: true,
+  activeView: 'arena', // 'arena' | 'weekly' | 'ledger'
+  activeAdminTab: 'sales', // 'sales' | 'lifecycle' | 'audit' | 'auth'
+  filter: 'all',
+  sortBy: 'available_desc',
+  lastCombatActionId: null
 };
 
 // Web Audio API Sound Effects
@@ -93,995 +38,224 @@ const SoundFX = {
     }
   },
   playKO() {
-    if (!state.settings.soundEnabled) return;
-    try {
-      this.init();
-      const now = this.ctx.currentTime;
-      const osc1 = this.ctx.createOscillator();
-      const gain1 = this.ctx.createGain();
-      osc1.type = 'sawtooth';
-      osc1.frequency.setValueAtTime(150, now);
-      osc1.frequency.exponentialRampToValueAtTime(32, now + 0.25);
-      gain1.gain.setValueAtTime(0.6, now);
-      gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-      osc1.connect(gain1);
-      gain1.connect(this.ctx.destination);
-      osc1.start(now);
-      osc1.stop(now + 0.3);
-
-      [880, 1320, 1760].forEach((freq, idx) => {
-        const bell = this.ctx.createOscillator();
-        const bGain = this.ctx.createGain();
-        bell.type = 'sine';
-        bell.frequency.setValueAtTime(freq, now + 0.08);
-        bGain.gain.setValueAtTime(0.25 / (idx + 1), now + 0.08);
-        bGain.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
-        bell.connect(bGain);
-        bGain.connect(this.ctx.destination);
-        bell.start(now + 0.08);
-        bell.stop(now + 1.15);
-      });
-    } catch (e) {}
-  },
-  playRevive() {
-    if (!state.settings.soundEnabled) return;
-    try {
-      this.init();
-      const now = this.ctx.currentTime;
-      [330, 440, 554.37, 659.25, 880].forEach((freq, idx) => {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, now + idx * 0.07);
-        gain.gain.setValueAtTime(0.25, now + idx * 0.07);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.35);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now + idx * 0.07);
-        osc.stop(now + idx * 0.07 + 0.36);
-      });
-    } catch (e) {}
-  },
-  playSiren() {
-    if (!state.settings.soundEnabled) return;
+    if (!clientSession.soundEnabled) return;
     try {
       this.init();
       const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(440, now);
-      osc.frequency.linearRampToValueAtTime(880, now + 0.35);
-      osc.frequency.linearRampToValueAtTime(440, now + 0.7);
-      osc.frequency.linearRampToValueAtTime(880, now + 1.05);
-      gain.gain.setValueAtTime(0.22, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.15);
+      osc.frequency.setValueAtTime(150, now);
+      osc.frequency.exponentialRampToValueAtTime(32, now + 0.25);
+      gain.gain.setValueAtTime(0.5, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
       osc.start(now);
-      osc.stop(now + 1.18);
+      osc.stop(now + 0.3);
     } catch (e) {}
   },
-  playCoin() {
-    if (!state.settings.soundEnabled) return;
+  playRevive() {
+    if (!clientSession.soundEnabled) return;
     try {
       this.init();
       const now = this.ctx.currentTime;
-      [987.77, 1318.51].forEach((freq, idx) => {
+      [330, 440, 554.37, 659.25].forEach((freq, idx) => {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now + idx * 0.08);
-        gain.gain.setValueAtTime(0.2, now + idx * 0.08);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.25);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+        gain.gain.setValueAtTime(0.2, now + idx * 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.3);
         osc.connect(gain);
         gain.connect(this.ctx.destination);
-        osc.start(now + idx * 0.08);
-        osc.stop(now + idx * 0.08 + 0.26);
+        osc.start(now + idx * 0.07);
+        osc.stop(now + idx * 0.07 + 0.32);
       });
     } catch (e) {}
   }
 };
 
-// Check if the 5-minute Battle Window is currently active
-function isBattleWindowOpen() {
-  if (!state.battleWindow || !state.battleWindow.active || !state.battleWindow.endsAt) {
-    return false;
+function getServerNowMs() {
+  return Date.now() + serverClockOffsetMs;
+}
+
+function formatBpDisplay(bp) {
+  const val = Number(bp || 0);
+  const sign = val < 0 ? '-' : '';
+  const abs = Math.abs(val);
+  const whole = Math.floor(abs / 100);
+  const rem = abs % 100;
+  if (rem === 0) return `${sign}${whole.toLocaleString('en-US')}`;
+  const dec = rem % 10 === 0 ? String(rem / 10) : String(rem).padStart(2, '0');
+  return `${sign}${whole.toLocaleString('en-US')}.${dec}`;
+}
+
+function formatCentsDisplay(cents) {
+  const c = Number(cents || 0);
+  const abs = Math.abs(c);
+  const dollars = Math.floor(abs / 100);
+  const rem = abs % 100;
+  if (rem === 0) return `$${dollars.toLocaleString('en-US')}`;
+  return `$${dollars.toLocaleString('en-US')}.${String(rem).padStart(2, '0')}`;
+}
+
+function formatCountdown(msRemaining) {
+  const sec = Math.max(0, Math.ceil(msRemaining / 1000));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
-  return Date.now() < new Date(state.battleWindow.endsAt).getTime();
-}
-
-function getBattleWindowRemainingSeconds() {
-  if (!isBattleWindowOpen()) return 0;
-  const diff = Math.max(0, Math.ceil((new Date(state.battleWindow.endsAt).getTime() - Date.now()) / 1000));
-  return diff;
-}
-
-function formatMMSS(totalSec) {
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-// Local cache & store identity
-function loadLocalCache() {
+function formatEtTime(epochMs) {
+  if (!epochMs) return '--:--';
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }).format(new Date(epochMs));
+}
+
+function formatEtClock(epochMs) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  }).format(new Date(epochMs));
+}
+
+function escapeHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function makeIdempotencyKey(prefix) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+// Session & Cache Loader
+function loadClientSession() {
   try {
-    const savedPin = sessionStorage.getItem(ADMIN_PIN_STORAGE_KEY);
-    if (savedPin) {
-      state.auth.pin = savedPin;
-      state.auth.isAdmin = true;
+    const savedAdmin = sessionStorage.getItem(ADMIN_TOKEN_KEY);
+    if (savedAdmin) {
+      const parsed = JSON.parse(savedAdmin);
+      clientSession.isAdmin = true;
+      clientSession.adminToken = parsed.adminToken || '';
+      clientSession.adminPin = parsed.adminPin || '';
     }
-    const savedStore = localStorage.getItem(MY_STORE_STORAGE_KEY);
+    const savedStore = localStorage.getItem(STORE_AUTH_KEY) || sessionStorage.getItem(STORE_AUTH_KEY);
     if (savedStore) {
-      state.auth.myStoreId = savedStore;
-    }
-    const raw = localStorage.getItem(LOCAL_CACHE_KEY);
-    if (!raw) return;
-    const cached = JSON.parse(raw);
-    applySharedStateObject(cached, false);
-  } catch (e) {}
-}
-
-function saveLocalCache() {
-  try {
-    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(getSerializableSharedState()));
-  } catch (e) {}
-}
-
-function getSerializableSharedState() {
-  return {
-    version: state.version,
-    districtName: state.districtName,
-    announcement: state.announcement,
-    battleWindow: state.battleWindow,
-    manualLines: state.manualLines,
-    salesLog: state.salesLog,
-    combatLog: state.combatLog,
-    customStores: state.customStores,
-    settings: {
-      koCost: state.settings.koCost,
-      reviveCost: state.settings.reviveCost,
-      koCanAttack: state.settings.koCanAttack,
-      sheetUrl: state.settings.sheetUrl
-    }
-  };
-}
-
-function applySharedStateObject(serverData, triggerNewEventFX = true) {
-  if (!serverData || typeof serverData !== 'object') return;
-
-  const prevLastKoId = state.combatLog.length > 0 ? state.combatLog[state.combatLog.length - 1].id : null;
-  const wasWindowOpen = isBattleWindowOpen();
-
-  if (serverData.districtName) state.districtName = serverData.districtName;
-  if (serverData.announcement) state.announcement = serverData.announcement;
-  if (serverData.battleWindow) state.battleWindow = serverData.battleWindow;
-  if (serverData.manualLines) state.manualLines = serverData.manualLines;
-  if (Array.isArray(serverData.salesLog)) state.salesLog = serverData.salesLog;
-  if (Array.isArray(serverData.combatLog)) state.combatLog = serverData.combatLog;
-  if (Array.isArray(serverData.customStores)) state.customStores = serverData.customStores;
-  if (serverData.settings) {
-    state.settings = { ...state.settings, ...serverData.settings };
-  }
-  if (serverData.version) state.version = serverData.version;
-
-  const nowWindowOpen = isBattleWindowOpen();
-  if (triggerNewEventFX && !wasWindowOpen && nowWindowOpen) {
-    SoundFX.playSiren();
-    triggerBannerFX('WINDOW_OPEN', { name: '5-MINUTE KNOCKOUT WINDOW OPEN!' }, null, 'All stores can now submit Knockouts & Revives!');
-  }
-  state.ui.wasBattleWindowOpen = nowWindowOpen;
-
-  if (triggerNewEventFX && state.combatLog.length > 0) {
-    const latestEvt = state.combatLog[state.combatLog.length - 1];
-    if (latestEvt.id !== prevLastKoId && state.ui.lastCombatEventId !== null) {
-      const computed = getComputedStores();
-      const actor = computed.find(s => s.id === latestEvt.attackerId) || { name: latestEvt.attackerId };
-      const target = computed.find(s => s.id === latestEvt.targetId) || { name: latestEvt.targetId };
-      if (latestEvt.type === 'KO') SoundFX.playKO();
-      else SoundFX.playRevive();
-      triggerBannerFX(latestEvt.type, actor, target, latestEvt.note);
-    }
-  }
-  if (state.combatLog.length > 0) {
-    state.ui.lastCombatEventId = state.combatLog[state.combatLog.length - 1].id;
-  }
-}
-
-// Fetch shared state from Netlify /api/state
-async function fetchServerState(triggerFX = true) {
-  try {
-    const res = await fetch('/api/state', { cache: 'no-store' });
-    if (res.ok) {
-      const data = await res.json();
-      applySharedStateObject(data, triggerFX);
-      saveLocalCache();
-      renderAll();
-      return true;
-    }
-  } catch (err) {}
-  return false;
-}
-
-// Push updated state from Admin to Netlify /api/state
-async function pushServerState() {
-  saveLocalCache();
-  renderAll();
-  if (!state.auth.isAdmin || !state.auth.pin) return;
-
-  const syncStatusText = document.getElementById('sync-status-text');
-  const syncDot = document.getElementById('sync-dot');
-  try {
-    syncDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse';
-    syncStatusText.textContent = 'Saving to Server...';
-
-    const res = await fetch('/api/state', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-pin': state.auth.pin
-      },
-      body: JSON.stringify({
-        pin: state.auth.pin,
-        state: getSerializableSharedState()
-      })
-    });
-
-    if (res.status === 401) {
-      alert('Your Admin PIN was rejected by the server. Please log in again.');
-      lockAdminMode();
-      return;
-    }
-
-    if (res.ok) {
-      const saved = await res.json();
-      state.version = saved.version || state.version;
-      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      syncDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
-      syncStatusText.textContent = 'Saved Live to Server';
-      document.getElementById('sync-time-text').textContent = `Updated: ${nowStr}`;
-    }
-  } catch (err) {
-    syncDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400';
-    syncStatusText.textContent = 'Saved Locally';
-  }
-}
-
-// Public Store Combat submission during the 5-minute Battle Window
-async function submitStoreCombatToServer(type, attackerId, targetId, note) {
-  try {
-    const res = await fetch('/api/state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'store_combat',
-        type,
-        attackerId,
-        targetId,
-        note
-      })
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      alert(data.error || 'Could not submit combat action.');
-      return false;
-    }
-    applySharedStateObject(data, false);
-    saveLocalCache();
-    renderAll();
-    return true;
-  } catch (err) {
-    // Fallback if offline
-    const cost = type === 'REVIVE' ? Number(state.settings.reviveCost || 1) : Number(state.settings.koCost || 1);
-    const newEvt = {
-      id: 'evt_' + Date.now(),
-      timestamp: new Date().toISOString(),
-      type,
-      attackerId,
-      targetId,
-      cost,
-      note,
-      submittedByStore: true
-    };
-    state.combatLog.push(newEvt);
-    state.ui.lastCombatEventId = newEvt.id;
-    saveLocalCache();
-    renderAll();
-    return true;
-  }
-}
-
-// Admin: Start or Stop 5-Minute Battle Window
-function startFiveMinuteBattleWindow() {
-  if (!state.auth.isAdmin) return;
-  const now = Date.now();
-  const durationSec = 300; // 5 minutes
-  state.battleWindow = {
-    active: true,
-    startedAt: new Date(now).toISOString(),
-    endsAt: new Date(now + durationSec * 1000).toISOString(),
-    durationSeconds: durationSec
-  };
-  state.ui.wasBattleWindowOpen = true;
-  SoundFX.playSiren();
-  triggerBannerFX('WINDOW_OPEN', { name: '5-MINUTE KNOCKOUT WINDOW OPEN!' }, null, 'All stores can now submit Knockouts & Revives!');
-  pushServerState();
-}
-
-function stopBattleWindow() {
-  if (!state.auth.isAdmin) return;
-  state.battleWindow = {
-    active: false,
-    startedAt: null,
-    endsAt: null,
-    durationSeconds: 300
-  };
-  state.ui.wasBattleWindowOpen = false;
-  pushServerState();
-}
-
-// Store Identity Picker ("Which Store Are You?")
-function openStorePickerModal() {
-  const modal = document.getElementById('modal-pick-store');
-  const grid = document.getElementById('store-picker-grid');
-  const computed = getComputedStores();
-
-  grid.innerHTML = computed.map(store => {
-    const isSelected = state.auth.myStoreId === store.id;
-    return `
-      <button type="button" onclick="selectMyStore('${store.id}')"
-              class="p-3.5 rounded-2xl border text-left transition flex items-center justify-between gap-2 ${
-                isSelected
-                  ? 'bg-magenta/25 border-magenta shadow-lg shadow-magenta/20'
-                  : 'bg-arena-elevated hover:bg-magenta/15 border-arena-border hover:border-magenta/50'
-              }">
-        <div class="flex items-center gap-2.5">
-          <span class="text-2xl">${store.emoji}</span>
-          <div>
-            <div class="font-display text-xl tracking-wide text-white leading-tight">${escapeHtml(store.name)}</div>
-            <div class="text-[11px] font-mono text-amber-400 font-bold">${store.availablePoints} pts avail</div>
-          </div>
-        </div>
-        ${isSelected ? '<span class="text-xs px-2 py-0.5 rounded-full bg-magenta text-white font-extrabold">YOU</span>' : ''}
-      </button>
-    `;
-  }).join('');
-
-  modal.classList.remove('hidden');
-  modal.classList.add('flex');
-}
-
-window.selectMyStore = function (storeId) {
-  state.auth.myStoreId = storeId;
-  localStorage.setItem(MY_STORE_STORAGE_KEY, storeId);
-  const modal = document.getElementById('modal-pick-store');
-  modal.classList.add('hidden');
-  modal.classList.remove('flex');
-  renderAll();
-};
-
-// Combine sheet stores + custom stores + manualLines + combatLog
-function getComputedStores() {
-  const allBaseStores = [...state.sheetStores];
-  state.customStores.forEach(cs => {
-    if (!allBaseStores.some(s => s.id === cs.id)) {
-      allBaseStores.push({
-        id: cs.id,
-        name: cs.name,
-        emoji: cs.emoji || '🥊',
-        nrGoal: cs.nrGoal || 1000,
-        netRev: cs.netRev || 0,
-        accGoal: cs.accGoal || 300,
-        acc: cs.acc || 0,
-        postGoal: cs.postGoal || 6,
-        totalPP: cs.totalPP || 0,
-        vl: cs.vl || 0,
-        bts: cs.bts || 0,
-        hsi: cs.hsi || 0,
-        visa: 0,
-        preOrders: 0,
-        isCustom: true
-      });
-    }
-  });
-
-  const statusMap = {};
-  allBaseStores.forEach(s => {
-    statusMap[s.id] = {
-      isEliminated: false,
-      eliminatedBy: null,
-      eliminatedAt: null,
-      eliminatedNote: null,
-      kosDealt: 0,
-      timesEliminated: 0,
-      timesRevived: 0,
-      pointsSpent: 0
-    };
-  });
-
-  state.combatLog.forEach(evt => {
-    if (evt.type === 'KO') {
-      if (statusMap[evt.attackerId]) {
-        statusMap[evt.attackerId].kosDealt += 1;
-        statusMap[evt.attackerId].pointsSpent += Number(evt.cost || 1);
-      }
-      if (statusMap[evt.targetId]) {
-        statusMap[evt.targetId].isEliminated = true;
-        statusMap[evt.targetId].eliminatedBy = evt.attackerId;
-        statusMap[evt.targetId].eliminatedAt = evt.timestamp;
-        statusMap[evt.targetId].eliminatedNote = evt.note || '';
-        statusMap[evt.targetId].timesEliminated += 1;
-      }
-    } else if (evt.type === 'REVIVE') {
-      const payerId = evt.attackerId || evt.targetId;
-      if (statusMap[payerId]) {
-        statusMap[payerId].pointsSpent += Number(evt.cost || 1);
-      }
-      if (statusMap[evt.targetId]) {
-        statusMap[evt.targetId].isEliminated = false;
-        statusMap[evt.targetId].eliminatedBy = null;
-        statusMap[evt.targetId].eliminatedNote = null;
-        statusMap[evt.targetId].timesRevived += 1;
-      }
-    }
-  });
-
-  return allBaseStores.map((store, index) => {
-    const m = state.manualLines[store.id] || {};
-    const sheetVl = Number(store.vl || 0);
-    const manualVl = Number(m.vl || 0);
-    const beyondVl = Math.max(0, Number(m.beyondVl || 0));
-
-    const sheetBts = Number(store.bts || 0);
-    const manualWatches = Number(m.watches || 0);
-    const manualTablets = Number(m.tablets || 0);
-    const manualBts = manualWatches + manualTablets;
-
-    const sheetHsi = Number(store.hsi || 0);
-    const manualHsi = Number(m.hsi || 0);
-
-    const sheetAcc = Number(store.acc || 0);
-    const manualAcc = Number(m.acc || 0);
-
-    const bonusPts = Number(m.bonusPts || 0);
-
-    const vl = Math.max(0, sheetVl + manualVl);
-    const bts = Math.max(0, sheetBts + manualBts);
-    const hsi = Math.max(0, sheetHsi + manualHsi);
-    const acc = Math.max(0, sheetAcc + manualAcc);
-
-    const vlPts = vl * 1;
-    const beyondVlPts = beyondVl * 2;
-    const btsPts = bts * 1;
-    const hsiPts = hsi * 2;
-    const accPts = Math.floor(acc / 100);
-    const accNextHundred = 100 - (acc % 100);
-
-    const earnedPoints = Math.max(0, vlPts + beyondVlPts + btsPts + hsiPts + accPts + bonusPts);
-    const cStatus = statusMap[store.id] || {
-      isEliminated: false,
-      eliminatedBy: null,
-      kosDealt: 0,
-      timesEliminated: 0,
-      timesRevived: 0,
-      pointsSpent: 0
-    };
-    const availablePoints = Math.max(0, earnedPoints - cStatus.pointsSpent);
-
-    return {
-      ...store,
-      sheetOrder: index,
-      emoji: STORE_EMOJIS[store.id] || store.emoji || '🥊',
-      sheetVl,
-      manualVl,
-      vl,
-      beyondVl,
-      sheetBts,
-      manualWatches,
-      manualTablets,
-      manualBts,
-      bts,
-      sheetHsi,
-      manualHsi,
-      hsi,
-      sheetAcc,
-      manualAcc,
-      acc,
-      bonusPts,
-      vlPts,
-      beyondVlPts,
-      btsPts,
-      hsiPts,
-      accPts,
-      accNextHundred,
-      earnedPoints,
-      pointsSpent: cStatus.pointsSpent,
-      availablePoints,
-      isEliminated: cStatus.isEliminated,
-      eliminatedBy: cStatus.eliminatedBy,
-      eliminatedAt: cStatus.eliminatedAt,
-      eliminatedNote: cStatus.eliminatedNote,
-      kosDealt: cStatus.kosDealt,
-      timesEliminated: cStatus.timesEliminated,
-      timesRevived: cStatus.timesRevived
-    };
-  });
-}
-
-// Parse CSV line
-function parseCSVLine(line) {
-  const result = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      inQuotes = !inQuotes;
-    } else if (ch === ',' && !inQuotes) {
-      result.push(current.trim());
-      current = '';
+      const parsed = JSON.parse(savedStore);
+      clientSession.storeId = parsed.storeId || '843D';
+      clientSession.storeToken = parsed.storeToken || '';
     } else {
-      current += ch;
+      clientSession.storeId = '843D';
     }
+    const cachedView = localStorage.getItem(CACHE_KEY);
+    if (cachedView) {
+      serverState = JSON.parse(cachedView);
+    }
+  } catch (e) {
+    if (!clientSession.storeId) clientSession.storeId = '843D';
   }
-  result.push(current.trim());
-  return result;
 }
 
-function parseCurrencyOrNumber(val) {
-  if (!val || val.includes('#DIV/0!') || val.includes('#VALUE!')) return 0;
-  const cleaned = String(val).replace(/[$,%\s]/g, '');
-  const num = parseFloat(cleaned);
-  return isNaN(num) ? 0 : num;
-}
-
-function extractSheetIds(urlOrId) {
-  let sheetId = DEFAULT_SHEET_ID;
-  let gid = DEFAULT_GID;
-  const matchId = String(urlOrId).match(/\/d\/([a-zA-Z0-9-_]+)/);
-  if (matchId) sheetId = matchId[1];
-  const matchGid = String(urlOrId).match(/gid=([0-9]+)/);
-  if (matchGid) gid = matchGid[1];
-  return { sheetId, gid };
-}
-
-// Full sync: Pull server state + Google Sheet
-async function syncAll() {
+// Fetch authoritative state from /api/state
+async function fetchAuthoritativeState() {
   const syncDot = document.getElementById('sync-dot');
   const syncStatusText = document.getElementById('sync-status-text');
-  const syncTimeText = document.getElementById('sync-time-text');
   const syncIcon = document.getElementById('sync-icon');
 
-  syncIcon.classList.add('animate-spin');
-  syncDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse';
-  syncStatusText.textContent = 'Syncing Live...';
-
-  await fetchServerState(true);
-
-  const { sheetId, gid } = extractSheetIds(state.settings.sheetUrl);
-  const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
-
+  syncIcon?.classList.add('animate-spin');
   try {
-    let csvText = null;
-    try {
-      const response = await fetch(csvUrl, { cache: 'no-store' });
-      if (response.ok) csvText = await response.text();
-    } catch (directErr) {
-      csvText = await fetchViaGvizJsonp(sheetId, gid);
-    }
-
-    if (csvText) {
-      const parsedStores = parseSheetCSV(csvText);
-      if (parsedStores.length > 0) {
-        state.sheetStores = parsedStores;
-      }
-    }
-
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const res = await fetch('/api/state', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    applyServerState(data);
     syncDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
-    syncStatusText.textContent = 'Live Sync Active';
-    syncTimeText.textContent = `Synced: ${nowStr}`;
+    syncStatusText.textContent = 'Authoritative DB Live';
   } catch (err) {
-    syncDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
-    syncStatusText.textContent = 'Live Arena Ready';
+    syncDot.className = 'w-2.5 h-2.5 rounded-full bg-red-400';
+    syncStatusText.textContent = 'Server Offline (Read-Only)';
   } finally {
-    syncIcon.classList.remove('animate-spin');
-    renderAll();
+    syncIcon?.classList.remove('animate-spin');
   }
 }
 
-function fetchViaGvizJsonp(sheetId, gid) {
-  return new Promise((resolve, reject) => {
-    const callbackName = 'gvizCallback_' + Math.floor(Math.random() * 1000000);
-    const script = document.createElement('script');
-    let timer = setTimeout(() => {
-      cleanup();
-      reject(new Error('JSONP timeout'));
-    }, 6000);
+function applyServerState(data) {
+  if (!data || typeof data !== 'object') return;
+  if (data.serverNowMs) {
+    serverClockOffsetMs = data.serverNowMs - Date.now();
+  }
 
-    function cleanup() {
-      clearTimeout(timer);
-      delete window[callbackName];
-      if (script.parentNode) script.parentNode.removeChild(script);
-    }
+  // Trigger FX banner if a brand-new combat action arrived
+  const prevLastId = clientSession.lastCombatActionId;
+  const latestCombat = Array.isArray(data.combatLog) && data.combatLog.length > 0
+    ? data.combatLog[data.combatLog.length - 1]
+    : null;
 
-    window[callbackName] = function (data) {
-      cleanup();
-      try {
-        if (!data || !data.table || !data.table.rows) return reject(new Error('Invalid gviz'));
-        const lines = data.table.rows.map(row => {
-          return (row.c || []).map(cell => {
-            if (!cell) return '';
-            const val = cell.f !== undefined && cell.f !== null ? cell.f : (cell.v !== null && cell.v !== undefined ? cell.v : '');
-            return `"${String(val).replace(/"/g, '""')}"`;
-          }).join(',');
-        });
-        resolve(lines.join('\n'));
-      } catch (e) {
-        reject(e);
-      }
-    };
+  serverState = data;
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+  } catch (e) {}
 
-    script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?gid=${gid}&tqx=out:json;responseHandler:${callbackName}`;
-    script.onerror = () => {
-      cleanup();
-      reject(new Error('JSONP script error'));
-    };
-    document.body.appendChild(script);
-  });
-}
-
-function parseSheetCSV(csvText) {
-  const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
-  const parsedStores = [];
-
-  for (const line of lines) {
-    const cols = parseCSVLine(line);
-    const colB = (cols[1] || '').trim();
-    if (!colB) continue;
-
-    const storeMatch = colB.match(/^([0-9A-Z]{3,5})\s*-\s*(.+)$/i);
-    if (storeMatch) {
-      const id = storeMatch[1].toUpperCase();
-      const fullName = `${id} - ${storeMatch[2].trim()}`;
-      parsedStores.push({
-        id,
-        name: fullName,
-        emoji: STORE_EMOJIS[id] || '🥊',
-        nrGoal: parseCurrencyOrNumber(cols[4]),
-        netRev: parseCurrencyOrNumber(cols[5]),
-        accGoal: parseCurrencyOrNumber(cols[7]),
-        acc: parseCurrencyOrNumber(cols[8]),
-        postGoal: parseCurrencyOrNumber(cols[10]),
-        totalPP: parseCurrencyOrNumber(cols[11]),
-        vl: parseCurrencyOrNumber(cols[13]),
-        bts: parseCurrencyOrNumber(cols[14]),
-        hsi: parseCurrencyOrNumber(cols[15]),
-        visa: parseCurrencyOrNumber(cols[16]),
-        preOrders: parseCurrencyOrNumber(cols[17])
-      });
+  if (latestCombat && prevLastId && latestCombat.actionId !== prevLastId) {
+    if (latestCombat.type === 'ATTACK') {
+      SoundFX.playKO();
+      const atkName = data.stores?.[latestCombat.attackerId]?.name || latestCombat.attackerId;
+      const tgtName = data.stores?.[latestCombat.targetId]?.name || latestCombat.targetId;
+      triggerBannerFX(
+        latestCombat.resultingKnockout ? 'KO' : 'HIT',
+        atkName,
+        tgtName,
+        `${latestCombat.attackType} (-${latestCombat.effectiveDamagePoints} pts)${latestCombat.resultingKnockout ? ' — KNOCKOUT!' : ''}`
+      );
+    } else if (latestCombat.type === 'REVIVE') {
+      SoundFX.playRevive();
+      const stName = data.stores?.[latestCombat.storeId]?.name || latestCombat.storeId;
+      triggerBannerFX('REVIVE', stName, stName, `Self-Revived (-${latestCombat.costPoints} pts)`);
     }
   }
-  return parsedStores;
-}
-
-// ADMIN: Adjust manual line or log a manual sale
-function ensureManualStoreObj(storeId) {
-  if (!state.manualLines[storeId]) {
-    state.manualLines[storeId] = { vl: 0, beyondVl: 0, watches: 0, tablets: 0, hsi: 0, acc: 0, bonusPts: 0 };
-  }
-}
-
-window.adjustStoreManual = function (storeId, field, delta) {
-  if (!state.auth.isAdmin) return;
-  ensureManualStoreObj(storeId);
-  const current = Number(state.manualLines[storeId][field] || 0);
-  state.manualLines[storeId][field] = current + delta;
-  SoundFX.playCoin();
-  pushServerState();
-};
-
-window.quickLogSale = function (category, qty, customNote = '') {
-  if (!state.auth.isAdmin) return;
-  const storeSelect = document.getElementById('select-line-store');
-  const storeId = storeSelect ? storeSelect.value : '';
-  if (!storeId) {
-    alert('Select a store first!');
-    return;
+  if (latestCombat) {
+    clientSession.lastCombatActionId = latestCombat.actionId;
   }
 
-  ensureManualStoreObj(storeId);
-  const numQty = Number(qty || 0);
-  if (numQty === 0) return;
+  renderAll();
+}
 
-  state.manualLines[storeId][category] = Number(state.manualLines[storeId][category] || 0) + numQty;
+// Send POST action to /api/state (Never mutates combat state locally on failure!)
+async function postServerAction(payload) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (clientSession.adminToken) headers['x-admin-token'] = clientSession.adminToken;
+  if (clientSession.adminPin) headers['x-admin-pin'] = clientSession.adminPin;
+  if (clientSession.storeToken) headers['x-store-token'] = clientSession.storeToken;
 
-  const computed = getComputedStores();
-  const store = computed.find(s => s.id === storeId) || { name: storeId };
-  const meta = LINE_LABELS[category] || { name: category, emoji: '⚡' };
-
-  state.salesLog.push({
-    id: 'sale_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-    timestamp: new Date().toISOString(),
-    storeId,
-    category,
-    qty: numQty,
-    note: customNote
+  const res = await fetch('/api/state', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload)
   });
 
-  SoundFX.playCoin();
-  triggerBannerFX('LINE', store, null, `${numQty > 0 ? '+' : ''}${category === 'acc' ? '$' + numQty : numQty} ${meta.name}${customNote ? ' — ' + customNote : ''}`);
-  pushServerState();
-};
-
-window.deleteSaleEvent = function (saleId) {
-  if (!state.auth.isAdmin) return;
-  const sale = state.salesLog.find(s => s.id === saleId);
-  if (sale && state.manualLines[sale.storeId]) {
-    state.manualLines[sale.storeId][sale.category] =
-      Number(state.manualLines[sale.storeId][sale.category] || 0) - Number(sale.qty || 0);
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || `Server rejected action (HTTP ${res.status})`);
   }
-  state.salesLog = state.salesLog.filter(s => s.id !== saleId);
-  pushServerState();
-};
-
-// Store Card Action Button Handler (Works for both Store Battle Window & Admin)
-window.quickSelectAction = function (storeId, actionType) {
-  const computed = getComputedStores();
-  const store = computed.find(s => s.id === storeId);
-  if (!store) return;
-
-  // Store targeting a rival during the 5-Minute Battle Window
-  if (actionType === 'store_target_ko') {
-    if (!state.auth.myStoreId) {
-      openStorePickerModal();
-      return;
-    }
-    const targetSelect = document.getElementById('select-store-battle-target');
-    if (targetSelect) {
-      targetSelect.value = storeId;
-      document.getElementById('store-battle-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      document.getElementById('input-store-battle-note')?.focus();
-    }
-    return;
-  }
-
-  if (!state.auth.isAdmin) {
-    openAdminLoginModal();
-    return;
-  }
-
-  if (actionType === 'add_line') {
-    setCommandMode('lines');
-    const sel = document.getElementById('select-line-store');
-    if (sel) sel.value = storeId;
-    sel?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  } else if (actionType === 'attack') {
-    setCommandMode('ko');
-    const attackerSelect = document.getElementById('select-attacker');
-    if (attackerSelect) attackerSelect.value = storeId;
-    document.getElementById('select-target')?.focus();
-  } else if (actionType === 'target') {
-    setCommandMode('ko');
-    const targetSelect = document.getElementById('select-target');
-    if (targetSelect) targetSelect.value = storeId;
-    document.getElementById('select-attacker')?.focus();
-  } else if (actionType === 'revive') {
-    setCommandMode('revive');
-    const reviveTargetSelect = document.getElementById('select-revive-target');
-    const revivePayerSelect = document.getElementById('select-revive-payer');
-    if (reviveTargetSelect) reviveTargetSelect.value = storeId;
-    if (revivePayerSelect && store.availablePoints >= state.settings.reviveCost) {
-      revivePayerSelect.value = storeId;
-    }
-  }
-};
-
-// Public Store submits Knockout during 5-Min Battle Window
-async function executeStoreBattleKnockout() {
-  if (!isBattleWindowOpen()) {
-    alert('The 5-Minute Knockout Window has closed!');
-    renderAll();
-    return;
-  }
-  const myStoreId = state.auth.myStoreId;
-  if (!myStoreId) {
-    openStorePickerModal();
-    return;
-  }
-
-  const targetId = document.getElementById('select-store-battle-target').value;
-  const noteInput = document.getElementById('input-store-battle-note');
-  const note = (noteInput.value || '').trim();
-
-  if (!targetId) {
-    alert('Pick a rival store to eliminate!');
-    return;
-  }
-  if (myStoreId === targetId) {
-    alert('You cannot eliminate your own store!');
-    return;
-  }
-
-  const computed = getComputedStores();
-  const attacker = computed.find(s => s.id === myStoreId);
-  const target = computed.find(s => s.id === targetId);
-  const cost = Number(state.settings.koCost || 1);
-
-  if (!attacker || !target) return;
-  if (!state.settings.koCanAttack && attacker.isEliminated) {
-    alert(`${attacker.name} is currently KNOCKED OUT! Use the Revive button first!`);
-    return;
-  }
-  if (attacker.availablePoints < cost) {
-    alert(`${attacker.name} needs at least ${cost} available point(s) to submit a Knockout!`);
-    return;
-  }
-  if (target.isEliminated) {
-    alert(`${target.name} is already knocked out!`);
-    return;
-  }
-
-  const ok = await submitStoreCombatToServer('KO', myStoreId, targetId, note);
-  if (ok) {
-    noteInput.value = '';
-    SoundFX.playKO();
-    triggerBannerFX('KO', attacker, target, note);
-  }
+  applyServerState(data);
+  return data;
 }
 
-// Public Store submits Self-Revive during 5-Min Battle Window
-async function executeStoreBattleRevive() {
-  if (!isBattleWindowOpen()) {
-    alert('The 5-Minute Knockout Window has closed!');
-    renderAll();
-    return;
-  }
-  const myStoreId = state.auth.myStoreId;
-  if (!myStoreId) {
-    openStorePickerModal();
-    return;
-  }
-
-  const computed = getComputedStores();
-  const myStore = computed.find(s => s.id === myStoreId);
-  const cost = Number(state.settings.reviveCost || 1);
-
-  if (!myStore) return;
-  if (!myStore.isEliminated) {
-    alert(`${myStore.name} is already standing in the ring!`);
-    return;
-  }
-  if (myStore.availablePoints < cost) {
-    alert(`${myStore.name} needs at least ${cost} available point(s) to self-revive!`);
-    return;
-  }
-
-  const noteInput = document.getElementById('input-store-revive-note');
-  const note = (noteInput.value || '').trim();
-
-  const ok = await submitStoreCombatToServer('REVIVE', myStoreId, myStoreId, note);
-  if (ok) {
-    noteInput.value = '';
-    SoundFX.playRevive();
-    triggerBannerFX('REVIVE', myStore, myStore, note);
-  }
-}
-
-// Execute Knockout (Admin)
-function executeKnockout() {
-  if (!state.auth.isAdmin) return;
-  const attackerId = document.getElementById('select-attacker').value;
-  const targetId = document.getElementById('select-target').value;
-  const noteInput = document.getElementById('input-ko-note');
-  const note = (noteInput.value || '').trim();
-
-  if (!attackerId || !targetId) {
-    alert('Select both an attacking store and a target store!');
-    return;
-  }
-  if (attackerId === targetId) {
-    alert('A store cannot eliminate itself! Pick a rival store in the district!');
-    return;
-  }
-
-  const computed = getComputedStores();
-  const attacker = computed.find(s => s.id === attackerId);
-  const target = computed.find(s => s.id === targetId);
-  const cost = Number(state.settings.koCost || 1);
-
-  if (!attacker || !target) return;
-  if (!state.settings.koCanAttack && attacker.isEliminated) {
-    alert(`${attacker.name} is currently KNOCKED OUT! They must REVIVE first before eliminating another store.`);
-    return;
-  }
-  if (attacker.availablePoints < cost) {
-    alert(`${attacker.name} needs at least ${cost} available point(s) to deliver a Knockout!`);
-    return;
-  }
-  if (target.isEliminated) {
-    alert(`${target.name} is already knocked out!`);
-    return;
-  }
-
-  const newEvt = {
-    id: 'evt_' + Date.now(),
-    timestamp: new Date().toISOString(),
-    type: 'KO',
-    attackerId,
-    targetId,
-    cost,
-    note
-  };
-  state.combatLog.push(newEvt);
-  state.ui.lastCombatEventId = newEvt.id;
-
-  noteInput.value = '';
-  SoundFX.playKO();
-  triggerBannerFX('KO', attacker, target, note);
-  pushServerState();
-}
-
-// Execute Revive (Admin)
-function executeRevive() {
-  if (!state.auth.isAdmin) return;
-  const targetId = document.getElementById('select-revive-target').value;
-  const payerId = document.getElementById('select-revive-payer').value;
-  const noteInput = document.getElementById('input-revive-note');
-  const note = (noteInput.value || '').trim();
-
-  if (!targetId || !payerId) {
-    alert('Select a knocked-out store to revive and a store with available points!');
-    return;
-  }
-
-  const computed = getComputedStores();
-  const target = computed.find(s => s.id === targetId);
-  const payer = computed.find(s => s.id === payerId);
-  const cost = Number(state.settings.reviveCost || 1);
-
-  if (!target || !payer) return;
-  if (!target.isEliminated) {
-    alert(`${target.name} is already standing in the arena!`);
-    return;
-  }
-  if (payer.availablePoints < cost) {
-    alert(`${payer.name} needs at least ${cost} available point(s) to trigger a Revive!`);
-    return;
-  }
-
-  const newEvt = {
-    id: 'evt_' + Date.now(),
-    timestamp: new Date().toISOString(),
-    type: 'REVIVE',
-    attackerId: payerId,
-    targetId,
-    cost,
-    note
-  };
-  state.combatLog.push(newEvt);
-  state.ui.lastCombatEventId = newEvt.id;
-
-  noteInput.value = '';
-  SoundFX.playRevive();
-  triggerBannerFX('REVIVE', payer, target, note);
-  pushServerState();
-}
-
-function undoLastAction() {
-  if (!state.auth.isAdmin || state.combatLog.length === 0) return;
-  state.combatLog.pop();
-  pushServerState();
-}
-
-window.deleteCombatEvent = function (eventId) {
-  if (!state.auth.isAdmin) return;
-  state.combatLog = state.combatLog.filter(e => e.id !== eventId);
-  pushServerState();
-};
-
-// Trigger dramatic overlay banner
-function triggerBannerFX(type, actor, target, note) {
+function triggerBannerFX(type, actorName, targetName, detailText) {
   const overlay = document.getElementById('fx-overlay');
   const banner = document.getElementById('fx-banner');
   const emoji = document.getElementById('fx-emoji');
@@ -1093,543 +267,416 @@ function triggerBannerFX(type, actor, target, note) {
   document.body.classList.add('shake-screen');
 
   if (type === 'KO') {
-    banner.className = 'transform scale-100 transition-transform duration-300 text-center px-10 py-8 rounded-3xl border-2 border-red-500 bg-gradient-to-b from-red-950/95 via-zinc-950/95 to-black/95 shadow-2xl shadow-red-600/50 backdrop-blur-xl';
+    banner.className = 'transform scale-100 transition-transform duration-300 text-center px-10 py-8 rounded-3xl border-2 border-red-500 bg-gradient-to-b from-red-950/95 via-zinc-950/95 to-black/95 shadow-2xl';
     emoji.textContent = '🥊💥';
-    title.className = 'font-display text-6xl md:text-7xl tracking-wider uppercase text-red-400 drop-shadow-lg';
+    title.className = 'font-display text-6xl tracking-wider uppercase text-red-400';
     title.textContent = 'KNOCKOUT!';
-    subtitle.innerHTML = `<span class="text-white font-extrabold">${escapeHtml(actor.name)}</span> ELIMINATED <span class="text-red-400 font-extrabold">${escapeHtml(target.name)}</span>!${note ? `<div class="text-sm text-amber-300 mt-2 italic">"${escapeHtml(note)}"</div>` : ''}`;
-  } else if (type === 'REVIVE') {
-    banner.className = 'transform scale-100 transition-transform duration-300 text-center px-10 py-8 rounded-3xl border-2 border-emerald-400 bg-gradient-to-b from-emerald-950/95 via-zinc-950/95 to-black/95 shadow-2xl shadow-emerald-500/50 backdrop-blur-xl';
-    emoji.textContent = '⚡🔥';
-    title.className = 'font-display text-6xl md:text-7xl tracking-wider uppercase text-emerald-400 drop-shadow-lg';
-    title.textContent = 'BACK IN THE RING!';
-    const selfRevive = actor.id === target.id;
-    subtitle.innerHTML = selfRevive
-      ? `<span class="text-emerald-300 font-extrabold">${escapeHtml(target.name)}</span> used their points to <span class="text-white font-extrabold">REVIVE</span>!`
-      : `<span class="text-emerald-300 font-extrabold">${escapeHtml(actor.name)}</span> revived <span class="text-white font-extrabold">${escapeHtml(target.name)}</span>!`;
-  } else if (type === 'WINDOW_OPEN') {
-    banner.className = 'transform scale-100 transition-transform duration-300 text-center px-10 py-8 rounded-3xl border-2 border-amber-300 bg-gradient-to-b from-red-900/95 via-magenta/90 to-black/95 shadow-2xl shadow-magenta/50 backdrop-blur-xl';
-    emoji.textContent = '🚨🥊🔥';
-    title.className = 'font-display text-5xl md:text-7xl tracking-wider uppercase text-amber-300 drop-shadow-lg';
-    title.textContent = 'BATTLE WINDOW OPEN!';
-    subtitle.innerHTML = `<span class="text-white font-extrabold">5 MINUTES ON THE CLOCK!</span> Submit your Knockouts & Revives now!`;
+    subtitle.innerHTML = `<span class="text-white font-extrabold">${escapeHtml(actorName)}</span> knocked out <span class="text-red-400 font-extrabold">${escapeHtml(targetName)}</span>!<div class="text-sm text-amber-300 mt-1">${escapeHtml(detailText)}</div>`;
+  } else if (type === 'HIT') {
+    banner.className = 'transform scale-100 transition-transform duration-300 text-center px-10 py-8 rounded-3xl border-2 border-magenta bg-gradient-to-b from-magenta/30 via-zinc-950/95 to-black/95 shadow-2xl';
+    emoji.textContent = '⚔️🔥';
+    title.className = 'font-display text-5xl tracking-wider uppercase text-amber-300';
+    title.textContent = 'DIRECT HIT!';
+    subtitle.innerHTML = `<span class="text-white font-extrabold">${escapeHtml(actorName)}</span> hit <span class="text-pink-300 font-extrabold">${escapeHtml(targetName)}</span>!<div class="text-sm text-zinc-200 mt-1">${escapeHtml(detailText)}</div>`;
   } else {
-    banner.className = 'transform scale-100 transition-transform duration-300 text-center px-10 py-7 rounded-3xl border-2 border-magenta bg-gradient-to-b from-magenta/30 via-zinc-950/95 to-black/95 shadow-2xl shadow-magenta/50 backdrop-blur-xl';
-    emoji.textContent = '🔥⚡';
-    title.className = 'font-display text-5xl md:text-6xl tracking-wider uppercase text-amber-300 drop-shadow-lg';
-    title.textContent = 'POINTS LOGGED!';
-    subtitle.innerHTML = `<span class="text-white font-extrabold">${escapeHtml(actor.name)}</span>: <span class="text-magenta-light font-extrabold">${escapeHtml(note)}</span>`;
+    banner.className = 'transform scale-100 transition-transform duration-300 text-center px-10 py-8 rounded-3xl border-2 border-emerald-400 bg-gradient-to-b from-emerald-950/95 via-zinc-950/95 to-black/95 shadow-2xl';
+    emoji.textContent = '⚡🔥';
+    title.className = 'font-display text-5xl tracking-wider uppercase text-emerald-400';
+    title.textContent = 'BACK IN THE RING!';
+    subtitle.innerHTML = `<span class="text-emerald-300 font-extrabold">${escapeHtml(actorName)}</span>: ${escapeHtml(detailText)}`;
   }
 
   overlay.classList.remove('opacity-0');
   overlay.classList.add('opacity-100');
-
   setTimeout(() => {
     overlay.classList.remove('opacity-100');
     overlay.classList.add('opacity-0');
-  }, type === 'LINE' ? 1600 : 2600);
+  }, 2400);
 }
 
-function escapeHtml(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+// Live 1-Second Telemetry & Countdown Ticker
+function updateTelemetryTick() {
+  const nowMs = getServerNowMs();
+  const clockEl = document.getElementById('et-clock-badge');
+  if (clockEl) clockEl.textContent = `${formatEtClock(nowMs)} ET`;
 
-function setCommandMode(mode) {
-  state.ui.commandMode = mode;
-  const tabs = {
-    lines: { btn: document.getElementById('tab-mode-lines'), form: document.getElementById('form-lines'), cls: 'active-lines' },
-    ko: { btn: document.getElementById('tab-mode-ko'), form: document.getElementById('form-ko'), cls: 'active-ko' },
-    revive: { btn: document.getElementById('tab-mode-revive'), form: document.getElementById('form-revive'), cls: 'active-revive' },
-    announce: { btn: document.getElementById('tab-mode-announce'), form: document.getElementById('form-announce'), cls: 'active-announce' }
-  };
+  if (!serverState || !serverState.currentEvent || !serverState.computedSchedule) return;
 
-  Object.keys(tabs).forEach(k => {
-    const item = tabs[k];
-    if (!item.btn || !item.form) return;
-    if (k === mode) {
-      item.btn.className = `mode-tab ${item.cls} py-2 px-2 rounded-lg text-[11px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 transition`;
-      item.form.classList.remove('hidden');
+  const evt = serverState.currentEvent;
+  const sched = serverState.computedSchedule;
+  const activeRoundId = evt.activeRoundId;
+  const activeRound = activeRoundId ? evt.roundStates?.[activeRoundId] : null;
+  const isRoundOpen = Boolean(activeRound && activeRound.status === 'OPEN' && nowMs >= activeRound.startMs && nowMs < activeRound.endMs);
+
+  // Top live battle round banner
+  const topRoundBanner = document.getElementById('battle-window-banner');
+  const topRoundTimer = document.getElementById('battle-countdown-timer');
+  const topRoundTitle = document.getElementById('active-round-banner-title');
+  if (isRoundOpen) {
+    topRoundBanner?.classList.remove('hidden');
+    if (topRoundTimer) topRoundTimer.textContent = formatCountdown(activeRound.endMs - nowMs);
+    if (topRoundTitle) topRoundTitle.textContent = `BATTLE ROUND LIVE (${activeRound.label}) — MAX 2 ATTACKS PER STORE!`;
+  } else {
+    topRoundBanner?.classList.add('hidden');
+  }
+
+  // Next Round Telemetry
+  const nextRoundEl = document.getElementById('telemetry-next-round');
+  const nextRoundSub = document.getElementById('telemetry-next-round-sub');
+  if (isRoundOpen) {
+    nextRoundEl.textContent = `LIVE (${formatCountdown(activeRound.endMs - nowMs)})`;
+    nextRoundEl.className = 'font-mono text-xl font-extrabold text-emerald-400 mt-1 animate-pulse';
+    nextRoundSub.textContent = `Active: ${activeRound.label}`;
+  } else {
+    const upcomingRound = (sched.rounds || []).find(r => r.startMs > nowMs && r.endMs <= sched.eventCloseMs);
+    if (upcomingRound) {
+      nextRoundEl.textContent = formatCountdown(upcomingRound.startMs - nowMs);
+      nextRoundEl.className = 'font-mono text-xl font-extrabold text-white mt-1';
+      nextRoundSub.textContent = `Next: ${upcomingRound.label} ET`;
     } else {
-      item.btn.className = 'mode-tab py-2 px-2 rounded-lg text-[11px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 transition text-zinc-400 hover:text-white';
-      item.form.classList.add('hidden');
+      nextRoundEl.textContent = 'Done';
+      nextRoundEl.className = 'font-mono text-xl font-extrabold text-zinc-500 mt-1';
+      nextRoundSub.textContent = 'No further rounds today';
     }
-  });
-}
-
-// Admin Authentication Helpers
-function openAdminLoginModal() {
-  const modal = document.getElementById('modal-admin-login');
-  const pinInput = document.getElementById('input-admin-pin');
-  const errEl = document.getElementById('admin-pin-error');
-  errEl.classList.add('hidden');
-  pinInput.value = '';
-  modal.classList.remove('hidden');
-  modal.classList.add('flex');
-  setTimeout(() => pinInput.focus(), 50);
-}
-
-function lockAdminMode() {
-  state.auth.isAdmin = false;
-  state.auth.pin = '';
-  sessionStorage.removeItem(ADMIN_PIN_STORAGE_KEY);
-  renderAll();
-}
-
-async function verifyAndUnlockAdmin(pin) {
-  try {
-    const res = await fetch('/api/state', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'verify_pin', pin })
-    });
-    if (res.ok) {
-      state.auth.isAdmin = true;
-      state.auth.pin = pin;
-      sessionStorage.setItem(ADMIN_PIN_STORAGE_KEY, pin);
-      return true;
-    }
-    return false;
-  } catch (err) {
-    if (pin === '2026') {
-      state.auth.isAdmin = true;
-      state.auth.pin = pin;
-      sessionStorage.setItem(ADMIN_PIN_STORAGE_KEY, pin);
-      return true;
-    }
-    return false;
   }
-}
 
-// Update the 1-second countdown timers without re-rendering full DOM
-function tickBattleWindowTimer() {
-  const open = isBattleWindowOpen();
-  const remSec = getBattleWindowRemainingSeconds();
-  const formatted = formatMMSS(remSec);
-
-  const topBanner = document.getElementById('battle-window-banner');
-  const topTimer = document.getElementById('battle-countdown-timer');
-  const storeTimer = document.getElementById('store-panel-countdown');
-  const adminBadge = document.getElementById('admin-window-timer-badge');
-
-  if (open) {
-    topBanner?.classList.remove('hidden');
-    if (topTimer) topTimer.textContent = formatted;
-    if (storeTimer) storeTimer.textContent = formatted;
-    if (adminBadge) {
-      adminBadge.classList.remove('hidden');
-      adminBadge.textContent = formatted;
-    }
+  // Next 3-Min Sales Cutoff Telemetry (:07, :27, :47)
+  const nextCutoffEl = document.getElementById('telemetry-next-cutoff');
+  const nextCutoffSub = document.getElementById('telemetry-next-cutoff-sub');
+  const upcomingCutoffRound = (sched.rounds || []).find(r => r.cutoffMs > nowMs && r.endMs <= sched.eventCloseMs);
+  if (upcomingCutoffRound) {
+    nextCutoffEl.textContent = formatCountdown(upcomingCutoffRound.cutoffMs - nowMs);
+    nextCutoffSub.textContent = `Cutoff ${formatEtTime(upcomingCutoffRound.cutoffMs)} for ${formatEtTime(upcomingCutoffRound.startMs)} round`;
   } else {
-    topBanner?.classList.add('hidden');
-    adminBadge?.classList.add('hidden');
-    if (state.ui.wasBattleWindowOpen) {
-      state.ui.wasBattleWindowOpen = false;
-      renderAll();
-    }
+    nextCutoffEl.textContent = 'Passed';
+    nextCutoffSub.textContent = 'Pending sales held at close';
+  }
+
+  // Deflection 120m Telemetry
+  const deflectEl = document.getElementById('telemetry-deflection');
+  const deflectSub = document.getElementById('telemetry-deflection-sub');
+  if (nowMs >= sched.powerPhaseStartMs || evt.phase === 'POWER_PHASE') {
+    deflectEl.textContent = 'Disabled';
+    deflectSub.textContent = 'Disabled during Power Phase';
+  } else if (nowMs < evt.deflectionUnlockMs) {
+    deflectEl.textContent = formatCountdown(evt.deflectionUnlockMs - nowMs);
+    deflectSub.textContent = `Qualifying window until ${formatEtTime(evt.deflectionUnlockMs)} ET`;
+  } else {
+    deflectEl.textContent = 'UNLOCKED';
+    deflectSub.textContent = 'Requires 2 survivals + 1,350 pts at round start';
+  }
+
+  // Power Phase Telemetry
+  const powerEl = document.getElementById('telemetry-power-phase');
+  const powerSub = document.getElementById('telemetry-power-phase-sub');
+  if (nowMs < sched.powerPhaseStartMs) {
+    powerEl.textContent = formatCountdown(sched.powerPhaseStartMs - nowMs);
+    powerSub.textContent = `${sched.isSunday ? '1-Hr Power Phase (4:45 PM)' : '3-Hr Power Hours (5:45 PM)'} • 350 Min`;
+  } else if (nowMs < sched.eventCloseMs) {
+    powerEl.textContent = `ACTIVE (${formatCountdown(sched.eventCloseMs - nowMs)})`;
+    powerSub.textContent = 'Revivals & Deflection disabled • Shields active';
+  } else {
+    powerEl.textContent = 'Ended';
+    powerSub.textContent = `Closed at ${formatEtTime(sched.eventCloseMs)} ET`;
+  }
+
+  // Next Automatic Elimination Checkpoint Telemetry
+  const chkEl = document.getElementById('telemetry-next-checkpoint');
+  const chkSub = document.getElementById('telemetry-next-checkpoint-sub');
+  const nextChk = (sched.eliminationCheckpoints || []).find(c => c.timestampMs > nowMs);
+  if (evt.pendingEliminationTie) {
+    chkEl.textContent = 'TIE PAUSED';
+    chkSub.textContent = `Awaiting Admin at ${evt.pendingEliminationTie.checkpointLabel}`;
+  } else if (nextChk) {
+    chkEl.textContent = formatCountdown(nextChk.timestampMs - nowMs);
+    chkSub.textContent = `Next elimination at ${nextChk.label} ET`;
+  } else {
+    chkEl.textContent = 'Complete';
+    chkSub.textContent = 'All checkpoints processed';
   }
 }
 
-// Render Everything
+// Render Full UI
 function renderAll() {
-  const computed = getComputedStores();
-  const storeById = {};
-  computed.forEach(s => { storeById[s.id] = s; });
+  if (!serverState) return;
+  const nowMs = getServerNowMs();
+  const evt = serverState.currentEvent;
+  const sched = serverState.computedSchedule;
+  const storesMap = serverState.stores || {};
+  const storesList = ROSTER_ORDER.map(id => storesMap[id]).filter(Boolean);
 
-  const isAdmin = state.auth.isAdmin;
-  const windowOpen = isBattleWindowOpen();
+  // Header & Phase Badges
+  document.getElementById('district-badge').textContent = serverState.districtName || 'PHOENIX DISTRICT';
+  const phaseBadge = document.getElementById('phase-badge');
+  const phaseLabelMap = {
+    PRE_EVENT: '⏳ PRE-EVENT',
+    REGULAR_HOURS: '🟢 REGULAR HOURS',
+    FINAL_STRETCH: '🔥 FINAL STRETCH',
+    POWER_PHASE: `⚡ POWER HOURS (${sched?.powerPhaseDurationHours || 3}H)`,
+    CLOSED: evt.status === 'ENDED_DRAW' ? '⚠️ ENDED (DRAW)' : '🏁 DAILY EVENT CLOSED'
+  };
+  phaseBadge.textContent = phaseLabelMap[evt.phase] || evt.phase;
 
-  // Ensure myStoreId defaults or updates
-  const myStore = state.auth.myStoreId ? storeById[state.auth.myStoreId] : null;
-  const pillEmoji = document.getElementById('my-store-pill-emoji');
-  const pillName = document.getElementById('my-store-pill-name');
-  if (myStore) {
-    pillEmoji.textContent = myStore.emoji;
-    pillName.textContent = myStore.name;
-  } else {
-    pillEmoji.textContent = '🏪';
-    pillName.textContent = 'Select Your Store...';
-  }
+  // Sheet Freshness
+  const syncTimeText = document.getElementById('sync-time-text');
+  const lastSheetMs = serverState.sheetSyncMeta?.lastSuccessAtMs;
+  const unresolvedIssues = (serverState.reconciliationIssues || []).filter(i => !i.resolved).length;
+  syncTimeText.textContent = lastSheetMs
+    ? `Sheet: ${formatEtTime(lastSheetMs)} ET${unresolvedIssues > 0 ? ` (${unresolvedIssues} issue)` : ''}`
+    : 'Sheet: Ready to sync';
 
+  // Admin Visibility
+  const isAdmin = clientSession.isAdmin;
   document.querySelectorAll('.admin-only').forEach(el => {
     if (isAdmin) el.classList.remove('hidden');
     else el.classList.add('hidden');
   });
+  document.getElementById('admin-lock-icon').textContent = isAdmin ? '🔓' : '🔒';
+  document.getElementById('admin-lock-label').textContent = isAdmin ? 'Exit Admin' : 'Admin';
 
-  const modeBadge = document.getElementById('mode-badge');
-  const adminLockIcon = document.getElementById('admin-lock-icon');
-  const adminLockLabel = document.getElementById('admin-lock-label');
-  if (isAdmin) {
-    modeBadge.className = 'px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-widest bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full';
-    modeBadge.textContent = '🔓 ADMIN EDITOR';
-    adminLockIcon.textContent = '🔓';
-    adminLockLabel.textContent = 'Exit Admin';
-  } else if (windowOpen) {
-    modeBadge.className = 'px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-widest bg-red-500/30 text-amber-300 border border-amber-400/50 rounded-full animate-pulse';
-    modeBadge.textContent = '🥊 BATTLE MODE LIVE';
-    adminLockIcon.textContent = '🔒';
-    adminLockLabel.textContent = 'Admin';
-  } else {
-    modeBadge.className = 'px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-widest bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-full';
-    modeBadge.textContent = '👀 LIVE VIEWER';
-    adminLockIcon.textContent = '🔒';
-    adminLockLabel.textContent = 'Admin';
+  // Store Selector Header Pill
+  if (!clientSession.storeId || !storesMap[clientSession.storeId]) {
+    clientSession.storeId = ROSTER_ORDER[0];
   }
+  const myStore = storesMap[clientSession.storeId] || null;
+  document.getElementById('my-store-pill-emoji').textContent = myStore ? myStore.emoji : '🏪';
+  document.getElementById('my-store-pill-name').textContent = myStore ? myStore.name : 'Select Store...';
+  document.getElementById('my-store-auth-label').textContent = 'Playing As Store';
+
+  // Standing count
+  const standingStores = storesList.filter(s => s.status === 'STANDING');
+  document.getElementById('stat-standing').textContent = standingStores.length;
+  document.getElementById('stat-total-stores').textContent = `/ ${storesList.length} Standing`;
+  document.getElementById('count-all').textContent = storesList.length;
 
   // Announcement Banner
-  const announceBanner = document.getElementById('announcement-banner');
-  const announceText = document.getElementById('announcement-text');
-  if (state.announcement && state.announcement.active && state.announcement.text) {
-    announceBanner.classList.remove('hidden');
-    announceText.textContent = state.announcement.text;
+  const annBanner = document.getElementById('announcement-banner');
+  if (serverState.announcement?.active && serverState.announcement?.text) {
+    annBanner.classList.remove('hidden');
+    document.getElementById('announcement-text').textContent = serverState.announcement.text;
   } else {
-    announceBanner.classList.add('hidden');
+    annBanner.classList.add('hidden');
   }
 
-  // District Badge
-  document.getElementById('district-badge').textContent = state.districtName;
+  // Draw / Qualifiers / Tie Banners
+  const drawBanner = document.getElementById('draw-banner');
+  const qualifiersBanner = document.getElementById('qualifiers-banner');
+  const tieBanner = document.getElementById('tie-alert-banner');
 
-  // Top KPI Stats
-  const aliveStores = computed.filter(s => !s.isEliminated);
-  const koStores = computed.filter(s => s.isEliminated);
-  const totalKosAllTime = state.combatLog.filter(e => e.type === 'KO').length;
-  const totalEarnedPts = computed.reduce((acc, s) => acc + s.earnedPoints, 0);
-  const totalAvailPts = computed.reduce((acc, s) => acc + s.availablePoints, 0);
-  const totalVl = computed.reduce((acc, s) => acc + s.vl, 0);
-  const totalBeyondVl = computed.reduce((acc, s) => acc + s.beyondVl, 0);
-  const totalBts = computed.reduce((acc, s) => acc + s.bts, 0);
-  const totalHsi = computed.reduce((acc, s) => acc + s.hsi, 0);
-  const totalAcc = computed.reduce((acc, s) => acc + s.acc, 0);
-  const totalNetRev = computed.reduce((acc, s) => acc + s.netRev, 0);
-
-  document.getElementById('stat-standing').textContent = aliveStores.length;
-  document.getElementById('stat-total-stores').textContent = `/ ${computed.length} Alive`;
-  document.getElementById('stat-ko').textContent = koStores.length;
-  document.getElementById('stat-total-kos-alltime').textContent = `${totalKosAllTime} total KOs`;
-  document.getElementById('stat-total-points').textContent = totalEarnedPts;
-  document.getElementById('stat-available-points').textContent = `${totalAvailPts} avail`;
-  document.getElementById('stat-vl').textContent = totalVl;
-  document.getElementById('stat-bvl').textContent = `+${totalBeyondVl} Beyond`;
-  document.getElementById('stat-bts').textContent = totalBts;
-  document.getElementById('stat-hsi').textContent = `${totalHsi} HINTs`;
-  document.getElementById('stat-acc').textContent = `$${totalAcc.toLocaleString()}`;
-  document.getElementById('stat-net-rev').textContent = `$${totalNetRev.toLocaleString()} NR`;
-
-  document.getElementById('count-all').textContent = computed.length;
-  document.getElementById('count-alive').textContent = aliveStores.length;
-  document.getElementById('count-ko').textContent = koStores.length;
-
-  // Sole Survivor Banner
-  const survivorBanner = document.getElementById('survivor-banner');
-  const isSoleSurvivor = aliveStores.length === 1 && computed.length > 1;
-  if (isSoleSurvivor) {
-    survivorBanner.classList.remove('hidden');
-    document.getElementById('survivor-name').textContent = `${aliveStores[0].emoji} ${aliveStores[0].name}`;
+  if (evt.status === 'ENDED_DRAW') {
+    drawBanner.classList.remove('hidden');
+    document.getElementById('draw-banner-reason').textContent =
+      evt.drawReason || 'All remaining standing stores were below 350 available points at Power Phase entry.';
   } else {
-    survivorBanner.classList.add('hidden');
+    drawBanner.classList.add('hidden');
   }
 
-  // Cost labels
-  document.getElementById('label-ko-cost').textContent = state.settings.koCost;
-  document.getElementById('label-revive-cost').textContent = state.settings.reviveCost;
-  document.querySelectorAll('.ko-cost-inline').forEach(el => {
-    el.textContent = state.settings.koCost;
-  });
-  document.querySelectorAll('.revive-cost-inline').forEach(el => {
-    el.textContent = state.settings.reviveCost;
-  });
+  if (evt.status === 'ENDED_NORMAL') {
+    qualifiersBanner.classList.remove('hidden');
+    const qNames = (evt.dailyQualifiers || []).map(id => storesMap[id]?.name || id);
+    document.getElementById('qualifiers-banner-list').textContent =
+      qNames.length > 0 ? qNames.join(' • ') : 'No surviving qualifiers';
+  } else {
+    qualifiersBanner.classList.add('hidden');
+  }
 
-  // Filter and sort stores
-  let filtered = [...computed];
-  if (state.ui.filter === 'alive') filtered = filtered.filter(s => !s.isEliminated);
-  if (state.ui.filter === 'eliminated') filtered = filtered.filter(s => s.isEliminated);
+  if (evt.pendingEliminationTie) {
+    tieBanner.classList.remove('hidden');
+    const cNames = evt.pendingEliminationTie.candidateSnapshots
+      .map(c => `${c.name} (${c.availablePoints} avail / ${c.salesEarnedPoints} sales pts)`)
+      .join(' vs ');
+    document.getElementById('tie-alert-text').textContent = `Checkpoint ${evt.pendingEliminationTie.checkpointLabel} ET tied on both Available Points and Sales-Earned Points: ${cNames}.`;
+  } else {
+    tieBanner.classList.add('hidden');
+  }
+
+  renderStoreCards(storesList, evt, sched, nowMs);
+  renderWeeklyStandingsView();
+  renderFullLedgerAndScheduleView(storesList, evt, sched, nowMs);
+  renderStoreCombatDeck(storesList, myStore, evt, sched, nowMs);
+  if (isAdmin) {
+    renderAdminPanel(storesList, evt, sched, nowMs);
+  }
+  renderActivityFeed(storesMap);
+  updateTelemetryTick();
+}
+
+function renderStoreCards(storesList, evt, sched, nowMs) {
+  const grid = document.getElementById('stores-grid');
+  let filtered = [...storesList];
+  if (clientSession.filter === 'standing') filtered = filtered.filter(s => s.status === 'STANDING');
+  if (clientSession.filter === 'eliminated') filtered = filtered.filter(s => s.status === 'KNOCKED_OUT');
 
   filtered.sort((a, b) => {
-    switch (state.ui.sortBy) {
-      case 'available_desc':
-        return b.availablePoints - a.availablePoints || b.earnedPoints - a.earnedPoints;
-      case 'earned_desc':
-        return b.earnedPoints - a.earnedPoints || b.availablePoints - a.availablePoints;
-      case 'alive_first':
-        if (a.isEliminated !== b.isEliminated) return a.isEliminated ? 1 : -1;
-        return b.availablePoints - a.availablePoints || b.earnedPoints - a.earnedPoints;
-      case 'kos_desc':
-        return b.kosDealt - a.kosDealt || b.availablePoints - a.availablePoints;
-      case 'sheet_order':
-      default:
-        return a.sheetOrder - b.sheetOrder;
+    if (clientSession.sortBy === 'available_desc') return b.availableBp - a.availableBp || b.totalEarnedBp - a.totalEarnedBp;
+    if (clientSession.sortBy === 'earned_desc') return b.totalEarnedBp - a.totalEarnedBp || b.availableBp - a.availableBp;
+    if (clientSession.sortBy === 'standing_first') {
+      if (a.status !== b.status) return a.status === 'STANDING' ? -1 : 1;
+      return b.availableBp - a.availableBp;
     }
+    return ROSTER_ORDER.indexOf(a.id) - ROSTER_ORDER.indexOf(b.id);
   });
 
-  renderStoreBattlePanel(computed, myStore, windowOpen);
-  renderAdminWindowControls(windowOpen);
-  renderStoreCards(filtered, storeById, isSoleSurvivor ? aliveStores[0].id : null, windowOpen, myStore);
-  renderSheetTable(computed);
-  renderAdminSelects(computed);
-  renderActivityFeed(storeById);
-  tickBattleWindowTimer();
-}
+  const activeRound = evt.activeRoundId ? evt.roundStates?.[evt.activeRoundId] : null;
+  const isRoundOpen = Boolean(activeRound && activeRound.status === 'OPEN' && nowMs >= activeRound.startMs && nowMs < activeRound.endMs);
 
-function renderStoreBattlePanel(computed, myStore, windowOpen) {
-  const panel = document.getElementById('store-battle-panel');
-  const statusPill = document.getElementById('store-battle-status-pill');
-  const myStoreDisplay = document.getElementById('battle-my-store-display');
-  const myStorePts = document.getElementById('battle-my-store-pts');
-  const closedBox = document.getElementById('store-battle-closed-box');
-  const openBox = document.getElementById('store-battle-open-box');
-  const aliveAttackBox = document.getElementById('store-alive-attack-box');
-  const koReviveBox = document.getElementById('store-ko-revive-box');
-  const targetSelect = document.getElementById('select-store-battle-target');
+  grid.innerHTML = filtered.map(store => {
+    const isStanding = store.status === 'STANDING';
+    const isMyStore = clientSession.storeId === store.id;
+    const isQualifier = (evt.dailyQualifiers || []).includes(store.id);
+    const attacksUsed = isRoundOpen ? Number(activeRound.attacksByStore?.[store.id] || 0) : 0;
 
-  if (myStore) {
-    myStoreDisplay.textContent = `${myStore.emoji} ${myStore.name}`;
-    myStorePts.textContent = `${myStore.availablePoints} Available Point${myStore.availablePoints === 1 ? '' : 's'} • ${myStore.isEliminated ? '💀 KNOCKED OUT' : '🟢 IN THE RING'}`;
-  } else {
-    myStoreDisplay.textContent = '⚠️ Click "Change Store" ->';
-    myStorePts.textContent = 'Pick which store you represent!';
-  }
+    // Deflection status
+    const deflectActive = isRoundOpen && Boolean(activeRound.deflectionSnapshot?.[store.id]) && store.deflection.activeForRoundId === activeRound.roundId && store.deflection.brokenInRoundId !== activeRound.roundId;
+    const deflectBroken = isRoundOpen && store.deflection.brokenInRoundId === activeRound.roundId;
 
-  if (windowOpen) {
-    panel.className = 'bg-gradient-to-b from-red-950/60 via-arena-elevated to-arena-card border-2 border-red-500 rounded-2xl p-5 shadow-2xl shadow-red-600/20 transition-all';
-    statusPill.className = 'text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-red-500/30 text-amber-300 border border-amber-400/50 animate-pulse';
-    statusPill.textContent = '🔥 WINDOW OPEN';
-    closedBox.classList.add('hidden');
-    openBox.classList.remove('hidden');
-
-    if (myStore && myStore.isEliminated && !state.settings.koCanAttack) {
-      aliveAttackBox.classList.add('hidden');
-      koReviveBox.classList.remove('hidden');
-    } else {
-      aliveAttackBox.classList.remove('hidden');
-      if (myStore && myStore.isEliminated) koReviveBox.classList.remove('hidden');
-      else koReviveBox.classList.add('hidden');
+    // Shield status
+    let shieldStatusLabel = 'None';
+    let shieldBadgeClass = 'bg-zinc-800 text-zinc-400';
+    if (store.shield.activeRoundId && store.shield.protectedUntilMs && nowMs < store.shield.protectedUntilMs) {
+      shieldStatusLabel = `🛡️ ACTIVE (${formatCountdown(store.shield.protectedUntilMs - nowMs)})`;
+      shieldBadgeClass = 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/50 animate-pulse';
+    } else if (store.shield.queuedForRoundId) {
+      shieldStatusLabel = `🛡️ QUEUED (${store.shield.queuedForRoundId.slice(-4)})`;
+      shieldBadgeClass = 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30';
+    } else if (store.shield.lastExpiredRoundId) {
+      shieldStatusLabel = 'Expired';
     }
-
-    // Populate rival targets (alive stores other than myStore)
-    const prevTarget = targetSelect.value;
-    const rivalTargets = computed.filter(s => !s.isEliminated && (!myStore || s.id !== myStore.id));
-    targetSelect.innerHTML = rivalTargets.length
-      ? rivalTargets.map(s => `<option value="${s.id}">🎯 ${escapeHtml(s.name)} (${s.availablePoints} pts)</option>`).join('')
-      : `<option value="">No rival stores standing!</option>`;
-    if (prevTarget && rivalTargets.some(s => s.id === prevTarget)) {
-      targetSelect.value = prevTarget;
-    }
-  } else {
-    panel.className = 'bg-gradient-to-b from-arena-elevated to-arena-card border-2 border-arena-border rounded-2xl p-5 shadow-xl transition-all';
-    statusPill.className = 'text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700';
-    statusPill.textContent = '🔒 WINDOW CLOSED';
-    closedBox.classList.remove('hidden');
-    openBox.classList.add('hidden');
-  }
-}
-
-function renderAdminWindowControls(windowOpen) {
-  const startBtn = document.getElementById('btn-admin-start-window');
-  const stopBtn = document.getElementById('btn-admin-stop-window');
-  const label = document.getElementById('admin-window-status-label');
-  if (!startBtn || !stopBtn) return;
-
-  if (windowOpen) {
-    startBtn.textContent = '🔄 Restart 5-Min Timer';
-    stopBtn.classList.remove('hidden');
-    label.textContent = 'LIVE! Stores can submit Knockouts right now.';
-  } else {
-    startBtn.textContent = '🔥 Open 5-Min Knockout Window';
-    stopBtn.classList.add('hidden');
-    label.textContent = 'Open Knockouts for 5 minutes so stores can attack live!';
-  }
-}
-
-function renderStoreCards(stores, storeById, soleSurvivorId, windowOpen, myStore) {
-  const grid = document.getElementById('stores-grid');
-  const isAdmin = state.auth.isAdmin;
-
-  if (stores.length === 0) {
-    grid.innerHTML = `
-      <div class="col-span-full bg-arena-card border border-arena-border rounded-2xl p-10 text-center text-zinc-400">
-        No stores match the selected filter.
-      </div>
-    `;
-    return;
-  }
-
-  grid.innerHTML = stores.map(store => {
-    const isChamp = store.id === soleSurvivorId;
-    const isMyStore = myStore && myStore.id === store.id;
-    const koByStore = store.eliminatedBy ? storeById[store.eliminatedBy] : null;
-    const canAffordKo = store.availablePoints >= state.settings.koCost && (!store.isEliminated || state.settings.koCanAttack);
-    const canAffordRevive = store.availablePoints >= state.settings.reviveCost;
-    const accProgressPct = store.acc % 100;
 
     return `
       <div class="store-card relative rounded-2xl border p-4 flex flex-col justify-between ${
-        store.isEliminated
+        !isStanding
           ? 'is-eliminated border-red-500/40'
-          : isChamp
+          : isQualifier
           ? 'is-survivor bg-arena-card'
           : isMyStore
           ? 'bg-arena-card border-magenta shadow-lg shadow-magenta/10'
           : 'bg-arena-card border-arena-border hover:border-magenta/50'
       }">
         <div>
+          <!-- Header -->
           <div class="flex items-start justify-between gap-2 mb-3">
             <div class="flex items-center gap-2.5">
               <div class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl border ${
-                store.isEliminated
-                  ? 'bg-red-950/50 border-red-500/30 grayscale'
-                  : 'bg-arena-elevated border-white/10'
+                !isStanding ? 'bg-red-950/50 border-red-500/30 grayscale' : 'bg-arena-elevated border-white/10'
               }">
-                ${store.isEliminated ? '💀' : store.emoji}
+                ${!isStanding ? '💀' : store.emoji}
               </div>
               <div>
                 <div class="flex items-center gap-1.5 flex-wrap">
-                  <h3 class="font-display text-2xl tracking-wide leading-none ${store.isEliminated ? 'line-through text-zinc-400' : 'text-white'}">
+                  <h3 class="font-display text-2xl tracking-wide leading-none ${!isStanding ? 'line-through text-zinc-400' : 'text-white'}">
                     ${escapeHtml(store.name)}
                   </h3>
-                  ${isMyStore ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-magenta text-white font-extrabold uppercase tracking-wider">YOUR STORE</span>' : ''}
-                  ${isChamp ? '<span class="text-xs px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold border border-amber-400/40">👑 CHAMP</span>' : ''}
+                  ${isMyStore ? '<span class="text-[9px] px-2 py-0.5 rounded-full bg-magenta text-white font-extrabold uppercase">YOUR STORE</span>' : ''}
+                  ${isQualifier ? '<span class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 font-extrabold uppercase">🏅 QUALIFIER</span>' : ''}
                 </div>
-                <div class="flex items-center gap-2 mt-1 text-[11px] text-zinc-400 font-medium">
-                  <span>NR: <strong class="text-zinc-200">$${store.netRev.toLocaleString()}</strong> / $${store.nrGoal.toLocaleString()}</span>
+                <div class="flex items-center gap-2 mt-1 text-[10px] text-zinc-400">
+                  <span>Deflection Survivals (0–120m): <strong class="${store.deflection.qualifiedForDay ? 'text-cyan-300' : 'text-zinc-200'}">${store.deflection.survivedAttacksInFirst120}/2</strong></span>
                   <span>•</span>
-                  <span>PP: <strong class="text-zinc-200">${store.totalPP}</strong>/${store.postGoal}</span>
+                  <span>Round Atks: <strong class="text-amber-300">${attacksUsed}/2</strong></span>
                 </div>
               </div>
             </div>
 
             ${
-              store.isEliminated
-                ? `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-red-500/20 text-red-300 border border-red-500/40 flex items-center gap-1 shrink-0">
+              !isStanding
+                ? `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-red-500/20 text-red-300 border border-red-500/40 shrink-0">
                      💀 KNOCKED OUT
                    </span>`
-                : `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 shrink-0">
-                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> IN THE RING
+                : `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0">
+                     🟢 STANDING
                    </span>`
             }
           </div>
 
-          ${
-            store.isEliminated
-              ? `<div class="mb-3 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-xs flex items-center justify-between gap-2">
-                   <div class="text-red-200">
-                     Knocked out by <strong class="text-white">${koByStore ? escapeHtml(koByStore.name) : 'Rival'}</strong>
-                     ${store.eliminatedNote ? `<span class="block text-[11px] text-amber-300 italic mt-0.5">"${escapeHtml(store.eliminatedNote)}"</span>` : ''}
-                   </div>
-                 </div>`
-              : ''
-          }
+          <!-- Deflection & Shield Status Strip -->
+          <div class="flex flex-wrap items-center gap-1.5 mb-3 text-[10px] font-bold">
+            <span class="px-2 py-0.5 rounded-lg ${
+              deflectActive
+                ? 'bg-purple-500/25 text-purple-200 border border-purple-400/50'
+                : deflectBroken
+                ? 'bg-red-500/20 text-red-300'
+                : store.deflection.qualifiedForDay
+                ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
+                : 'bg-arena-elevated text-zinc-400'
+            }">
+              ${
+                deflectActive
+                  ? '🛡️ DEFLECTION ACTIVE (100 DMG)'
+                  : deflectBroken
+                  ? '💥 DEFLECTION BROKEN'
+                  : store.deflection.qualifiedForDay
+                  ? '🛡️ Deflection Qualified (Needs ≥1,350 at round start)'
+                  : `Deflection: ${store.deflection.survivedAttacksInFirst120}/2 survivals`
+              }
+            </span>
+            <span class="px-2 py-0.5 rounded-lg ${shieldBadgeClass}">
+              Shield: ${shieldStatusLabel}
+            </span>
+          </div>
 
-          <!-- Point Power Meter -->
-          <div class="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-arena-bg/90 border border-arena-border mb-3">
-            <div class="text-center border-r border-arena-border pr-2">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Available</div>
-              <div class="font-display text-3xl leading-tight ${store.availablePoints > 0 ? 'text-amber-400' : 'text-zinc-500'}">
-                ${store.availablePoints} <span class="text-xs font-sans font-bold">PTS</span>
+          <!-- Primary Balances Box -->
+          <div class="grid grid-cols-4 gap-1.5 p-2.5 rounded-xl bg-arena-bg/90 border border-arena-border mb-3 text-center">
+            <div class="border-r border-arena-border pr-1">
+              <div class="text-[9px] font-bold uppercase text-zinc-400">Available</div>
+              <div class="font-display text-2xl leading-tight ${store.availableBp >= 35000 ? 'text-amber-400' : 'text-red-400'}">
+                ${formatBpDisplay(store.availableBp)}
               </div>
             </div>
-            <div class="text-center border-r border-arena-border pr-2">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Earned / Spent</div>
-              <div class="font-mono text-sm font-extrabold text-zinc-200 mt-1">
-                <span class="text-emerald-400">${store.earnedPoints}</span>
+            <div class="border-r border-arena-border pr-1">
+              <div class="text-[9px] font-bold uppercase text-zinc-400">Total Earned</div>
+              <div class="font-mono text-xs font-extrabold text-emerald-400 mt-1">
+                ${formatBpDisplay(store.totalEarnedBp)}
+              </div>
+            </div>
+            <div class="border-r border-arena-border pr-1">
+              <div class="text-[9px] font-bold uppercase text-zinc-400">Pending</div>
+              <div class="font-mono text-xs font-extrabold text-purple-300 mt-1">
+                +${formatBpDisplay(store.pendingBp)}
+              </div>
+            </div>
+            <div>
+              <div class="text-[9px] font-bold uppercase text-zinc-400">Spent / Dmg</div>
+              <div class="font-mono text-[11px] font-extrabold text-zinc-300 mt-1">
+                <span class="text-red-300">-${formatBpDisplay(store.attackSpentBp + store.revivalSpentBp + store.shieldSpentBp)}</span>
                 <span class="text-zinc-500">/</span>
-                <span class="text-red-400">${store.pointsSpent}</span>
-              </div>
-            </div>
-            <div class="text-center">
-              <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">KOs / Revives</div>
-              <div class="font-mono text-sm font-extrabold text-zinc-200 mt-1">
-                🥊 ${store.kosDealt} <span class="text-zinc-600">|</span> ⚡ ${store.timesRevived}
+                <span class="text-orange-400">-${formatBpDisplay(store.incomingDamageBp)}</span>
               </div>
             </div>
           </div>
 
-          <!-- 1-Point & 2-Point Metric Breakdown Pills -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px] mb-3">
-            <div class="bg-arena-elevated/70 border border-white/5 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
-              <span class="text-zinc-400">VL <span class="text-[9px] text-zinc-500">(1pt)</span></span>
-              <span class="font-mono font-bold text-white">${store.vl} <span class="text-amber-400 text-[10px]">+${store.vlPts}</span></span>
+          <!-- Sales Quantities Breakdown -->
+          <div class="grid grid-cols-5 gap-1 text-[10px] text-center">
+            <div class="bg-arena-elevated/70 border border-white/5 rounded-lg p-1.5">
+              <div class="text-zinc-400">VL (200)</div>
+              <div class="font-mono font-bold text-white">${store.quantities.totalVl}</div>
             </div>
-
-            <div class="bg-magenta/10 border border-magenta/30 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
-              <span class="text-magenta-light font-semibold">B.VL <span class="text-[9px]">(2pt)</span></span>
-              <span class="font-mono font-bold text-white">${store.beyondVl} <span class="text-pink-300 text-[10px]">+${store.beyondVlPts}</span></span>
+            <div class="bg-arena-elevated/70 border border-white/5 rounded-lg p-1.5">
+              <div class="text-zinc-400">BTS (200)</div>
+              <div class="font-mono font-bold text-cyan-300">${store.quantities.bts}</div>
             </div>
-
-            <div class="bg-arena-elevated/70 border border-white/5 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
-              <span class="text-zinc-400">BTS <span class="text-[9px] text-zinc-500">(1pt)</span></span>
-              <span class="font-mono font-bold text-cyan-300">${store.bts} <span class="text-amber-400 text-[10px]">+${store.btsPts}</span></span>
+            <div class="bg-arena-elevated/70 border border-white/5 rounded-lg p-1.5">
+              <div class="text-zinc-400">HINT (600)</div>
+              <div class="font-mono font-bold text-purple-300">${store.quantities.hsi}</div>
             </div>
-
-            <div class="bg-arena-elevated/70 border border-white/5 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
-              <span class="text-zinc-400">HINT <span class="text-[9px] text-zinc-500">(2pt)</span></span>
-              <span class="font-mono font-bold text-purple-300">${store.hsi} <span class="text-amber-400 text-[10px]">+${store.hsiPts}</span></span>
+            <div class="bg-arena-elevated/70 border border-white/5 rounded-lg p-1.5">
+              <div class="text-zinc-400">Acc (2/$1)</div>
+              <div class="font-mono font-bold text-pink-300">${formatCentsDisplay(store.quantities.accCents)}</div>
             </div>
-          </div>
-
-          <!-- Accessories Progress Bar -->
-          <div class="bg-arena-elevated/50 border border-white/5 rounded-xl p-2.5">
-            <div class="flex items-center justify-between text-[11px] mb-1">
-              <span class="text-zinc-300 font-semibold">
-                🎧 Accessories: <strong class="text-pink-400">$${store.acc.toLocaleString()}</strong>
-                <span class="text-zinc-500">/ $${store.accGoal.toLocaleString()}</span>
-              </span>
-              <span class="font-mono font-bold text-amber-300">
-                +${store.accPts} pt${store.accPts === 1 ? '' : 's'}
-                <span class="text-[10px] text-zinc-400 font-normal">($${store.accNextHundred} to next)</span>
-              </span>
-            </div>
-            <div class="w-full h-1.5 bg-arena-bg rounded-full overflow-hidden">
-              <div class="h-full bg-gradient-to-r from-magenta to-amber-400 rounded-full transition-all duration-500" style="width: ${accProgressPct}%"></div>
+            <div class="bg-emerald-500/15 border border-emerald-400/40 rounded-lg p-1.5" title="Automatic +300 bonus points for every 300 points earned from sales">
+              <div class="text-emerald-300">+300 Bonus</div>
+              <div class="font-mono font-bold text-emerald-200">+${formatBpDisplay(store.salesMilestoneBonusBp || 0)}</div>
             </div>
           </div>
         </div>
 
-        <!-- Card Action Footer: Shows Store Battle Target button when 5-Min Window is Open, plus Admin controls if Admin -->
         ${
-          windowOpen && !store.isEliminated && (!myStore || myStore.id !== store.id)
+          isStanding && (!clientSession.storeId || clientSession.storeId !== store.id)
             ? `<div class="pt-3 mt-3 border-t border-arena-border/60">
-                 <button onclick="quickSelectAction('${store.id}', 'store_target_ko')"
-                         class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-red-600 to-magenta hover:from-red-500 hover:to-magenta-light text-white text-xs font-extrabold uppercase tracking-wider shadow-lg transition">
-                   🎯 Target ${escapeHtml(store.id)} for Knockout!
+                 <button type="button" onclick="selectTargetFromCard('${store.id}')"
+                         class="w-full py-1.5 px-3 rounded-xl bg-arena-elevated hover:bg-magenta/25 border border-arena-border hover:border-magenta/50 text-zinc-200 text-[11px] font-bold uppercase tracking-wider transition">
+                   🎯 Target ${escapeHtml(store.shortName)} in Combat Deck
                  </button>
-               </div>`
-            : ''
-        }
-
-        ${
-          isAdmin
-            ? `<div class="flex items-center gap-1.5 pt-3 mt-3 border-t border-arena-border/60">
-                 <button onclick="quickSelectAction('${store.id}', 'add_line')"
-                         class="py-2 px-2.5 rounded-xl bg-magenta/20 hover:bg-magenta/35 border border-magenta/40 text-pink-200 text-[11px] font-extrabold uppercase tracking-wider transition">
-                   ➕ Add Line
-                 </button>
-                 ${
-                   !store.isEliminated
-                     ? `<button onclick="quickSelectAction('${store.id}', 'attack')"
-                                ${!canAffordKo ? 'disabled' : ''}
-                                class="flex-1 py-2 px-2.5 rounded-xl text-[11px] font-extrabold uppercase tracking-wider transition ${
-                                  canAffordKo
-                                    ? 'bg-gradient-to-r from-red-600 to-magenta text-white shadow'
-                                    : 'bg-arena-elevated text-zinc-500 cursor-not-allowed'
-                                }">
-                          🥊 Admin KO
-                        </button>
-                        <button onclick="quickSelectAction('${store.id}', 'target')"
-                                class="py-2 px-2.5 rounded-xl bg-arena-elevated hover:bg-red-500/20 border border-arena-border text-zinc-300 hover:text-red-300 text-[11px] font-bold transition">
-                          🎯
-                        </button>`
-                     : `<button onclick="quickSelectAction('${store.id}', 'revive')"
-                                class="flex-1 py-2 px-2.5 rounded-xl text-[11px] font-extrabold uppercase tracking-wider transition ${
-                                  canAffordRevive
-                                    ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow'
-                                    : 'bg-arena-elevated text-emerald-300 border border-emerald-500/30'
-                                }">
-                          ⚡ Admin Revive
-                        </button>`
-                 }
                </div>`
             : ''
         }
@@ -1638,411 +685,954 @@ function renderStoreCards(stores, storeById, soleSurvivorId, windowOpen, myStore
   }).join('');
 }
 
-function renderSheetTable(computed) {
-  const tbody = document.getElementById('sheet-table-body');
-  const isAdmin = state.auth.isAdmin;
+window.selectTargetFromCard = function (targetId) {
+  const sel = document.getElementById('select-store-battle-target');
+  if (sel) {
+    sel.value = targetId;
+    updateAttackModeOptions();
+    document.getElementById('store-battle-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+};
 
-  const cellStepper = (storeId, field, displayVal, colorClass) => {
-    if (!isAdmin) {
-      return `<span class="font-mono font-bold ${colorClass}">${displayVal}</span>`;
-    }
-    const step = field === 'acc' ? 100 : 1;
-    return `
-      <div class="inline-flex items-center gap-1">
-        <button onclick="adjustStoreManual('${storeId}', '${field}', -${step})" class="w-5 h-5 rounded bg-arena-elevated hover:bg-red-500/30 text-zinc-300 leading-none">−</button>
-        <span class="font-mono font-bold ${colorClass} min-w-[24px] text-center">${displayVal}</span>
-        <button onclick="adjustStoreManual('${storeId}', '${field}', ${step})" class="w-5 h-5 rounded bg-arena-elevated hover:bg-emerald-500/30 text-zinc-300 leading-none">+</button>
-      </div>
-    `;
-  };
+function renderWeeklyStandingsView() {
+  const wk = serverState.weeklyStandings;
+  if (!wk) return;
 
-  tbody.innerHTML = computed.map(store => {
+  document.getElementById('weekly-counted-days-badge').textContent = `${wk.countedDaysCount} Counted Event Day${wk.countedDaysCount === 1 ? '' : 's'} Held`;
+
+  const tbody = document.getElementById('weekly-standings-tbody');
+  tbody.innerHTML = (wk.standings || []).map((row, idx) => {
     return `
-      <tr class="hover:bg-arena-elevated/40 transition ${store.isEliminated ? 'opacity-60 bg-red-950/10' : ''}">
-        <td class="py-2.5 px-4 font-semibold text-white whitespace-nowrap">
-          <span class="mr-1.5">${store.isEliminated ? '💀' : store.emoji}</span>
-          <span class="${store.isEliminated ? 'line-through text-zinc-400' : ''}">${escapeHtml(store.name)}</span>
+      <tr class="hover:bg-arena-elevated/40 transition">
+        <td class="py-3 px-4 font-display text-2xl text-zinc-300">#${idx + 1}</td>
+        <td class="py-3 px-4 font-semibold text-white">
+          <span class="mr-1.5">${row.emoji}</span>${escapeHtml(row.name)}
+          ${row.isAdminSelectedWinner ? '<span class="ml-1.5 px-2 py-0.5 rounded bg-amber-400 text-black text-[10px] font-extrabold">🏆 ADMIN TIE WINNER</span>' : ''}
+          ${row.isSharedResultWinner ? '<span class="ml-1.5 px-2 py-0.5 rounded bg-purple-400 text-black text-[10px] font-extrabold">🤝 SHARED RESULT</span>' : ''}
         </td>
-        <td class="py-2.5 px-2 text-center">
-          ${
-            store.isEliminated
-              ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-300">KO</span>'
-              : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300">ALIVE</span>'
-          }
-        </td>
-        <td class="py-2.5 px-2 text-center">${cellStepper(store.id, 'vl', store.vl, 'text-zinc-200')}</td>
-        <td class="py-2.5 px-2 text-center bg-magenta/5">${cellStepper(store.id, 'beyondVl', store.beyondVl, 'text-magenta-light')}</td>
-        <td class="py-2.5 px-2 text-center">${cellStepper(store.id, 'watches', store.bts, 'text-cyan-300')}</td>
-        <td class="py-2.5 px-2 text-center">${cellStepper(store.id, 'hsi', store.hsi, 'text-purple-300')}</td>
-        <td class="py-2.5 px-2 text-right">${cellStepper(store.id, 'acc', '$' + store.acc.toLocaleString(), 'text-pink-300')}</td>
-        <td class="py-2.5 px-2 text-center">${cellStepper(store.id, 'bonusPts', store.bonusPts > 0 ? '+' + store.bonusPts : store.bonusPts, 'text-zinc-200')}</td>
-        <td class="py-2.5 px-2 text-center font-mono font-bold text-amber-300">${store.earnedPoints}</td>
-        <td class="py-2.5 px-2 text-center font-mono text-red-400">${store.pointsSpent}</td>
-        <td class="py-2.5 px-3 text-center font-mono font-extrabold text-sm ${store.availablePoints > 0 ? 'text-emerald-400' : 'text-zinc-500'}">${store.availablePoints}</td>
+        <td class="py-3 px-3 text-right font-mono font-extrabold text-amber-300">${row.cumulativeEarnedPoints.toLocaleString()}</td>
+        <td class="py-3 px-3 text-right font-mono font-bold text-cyan-300">${row.averageDailyEarnedPoints.toLocaleString()}</td>
+        <td class="py-3 px-3 text-right font-mono text-emerald-300">${row.cumulativeSalesEarnedPoints.toLocaleString()}</td>
+        <td class="py-3 px-3 text-right font-mono text-zinc-300">${formatBpDisplay(row.cumulativeAdminBonusBp)}</td>
+        <td class="py-3 px-3 text-center font-mono text-zinc-400">${row.countedDaysHeld}</td>
+        <td class="py-3 px-3 text-center font-mono font-bold text-emerald-400">${row.qualifierCount}</td>
       </tr>
     `;
   }).join('');
+
+  // Render 7-day weekly matrix
+  const daysGrid = document.getElementById('weekly-days-grid');
+  const dateKeys = serverState.currentWeek?.eventDateKeys || [];
+  const qualifiersByDate = serverState.currentWeek?.dailyQualifiersByDate || {};
+  const countedDays = serverState.currentWeek?.countedDaysHeld || [];
+
+  daysGrid.innerHTML = dateKeys.map(dKey => {
+    const held = countedDays.includes(dKey);
+    const qList = qualifiersByDate[dKey] || [];
+    const isToday = serverState.currentEvent?.dateKey === dKey;
+    return `
+      <div class="p-3 rounded-xl border ${isToday ? 'border-magenta bg-magenta/10' : 'border-arena-border bg-arena-elevated/50'}">
+        <div class="flex items-center justify-between text-[10px] font-bold uppercase text-zinc-400">
+          <span>${dKey}</span>
+          ${held ? '<span class="text-emerald-400">HELD</span>' : '<span class="text-zinc-500">SCHED</span>'}
+        </div>
+        <div class="mt-1.5 text-xs font-bold text-white">
+          Qualifiers: <span class="text-emerald-400">${qList.length}</span>
+        </div>
+        <div class="mt-1 text-[10px] text-zinc-400 truncate">
+          ${qList.length > 0 ? qList.join(', ') : '—'}
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
-function renderAdminSelects(computed) {
-  const selectLineStore = document.getElementById('select-line-store');
-  const selectAttacker = document.getElementById('select-attacker');
-  const selectTarget = document.getElementById('select-target');
-  const selectReviveTarget = document.getElementById('select-revive-target');
-  const selectRevivePayer = document.getElementById('select-revive-payer');
+function renderFullLedgerAndScheduleView(storesList, evt, sched, nowMs) {
+  const tbody = document.getElementById('ledger-table-body');
+  tbody.innerHTML = storesList.map(s => {
+    return `
+      <tr class="hover:bg-arena-elevated/40 transition ${s.status !== 'STANDING' ? 'opacity-65 bg-red-950/10' : ''}">
+        <td class="py-2.5 px-3 font-semibold text-white whitespace-nowrap">${s.emoji} ${escapeHtml(s.name)}</td>
+        <td class="py-2.5 px-2 text-center">
+          <span class="px-2 py-0.5 rounded-full text-[9px] font-extrabold ${s.status === 'STANDING' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-red-500/20 text-red-300'}">
+            ${s.status}
+          </span>
+        </td>
+        <td class="py-2.5 px-2 text-right font-mono text-zinc-300">${formatBpDisplay(s.carriedOpeningBalanceBp)}</td>
+        <td class="py-2.5 px-2 text-right font-mono text-emerald-300">${formatBpDisplay(s.salesEarnedBp)}</td>
+        <td class="py-2.5 px-2 text-right font-mono text-zinc-300">${formatBpDisplay(s.adminBonusBp)}</td>
+        <td class="py-2.5 px-2 text-right font-mono font-bold text-amber-300">${formatBpDisplay(s.totalEarnedBp)}</td>
+        <td class="py-2.5 px-2 text-right font-mono text-purple-300">+${formatBpDisplay(s.pendingBp)}</td>
+        <td class="py-2.5 px-2 text-right font-mono text-red-300">-${formatBpDisplay(s.attackSpentBp)}</td>
+        <td class="py-2.5 px-2 text-right font-mono text-teal-300">-${formatBpDisplay(s.revivalSpentBp)}</td>
+        <td class="py-2.5 px-2 text-right font-mono text-cyan-300">-${formatBpDisplay(s.shieldSpentBp)}</td>
+        <td class="py-2.5 px-2 text-right font-mono text-orange-400">-${formatBpDisplay(s.incomingDamageBp)}</td>
+        <td class="py-2.5 px-3 text-right font-mono font-extrabold text-sm text-white">${formatBpDisplay(s.availableBp)}</td>
+      </tr>
+    `;
+  }).join('');
 
-  if (!selectLineStore) return;
-
-  const prevLineStore = selectLineStore.value;
-  const prevAttacker = selectAttacker.value;
-  const prevTarget = selectTarget.value;
-  const prevReviveTarget = selectReviveTarget.value;
-  const prevRevivePayer = selectRevivePayer.value;
-
-  selectLineStore.innerHTML = computed
-    .map(s => `<option value="${s.id}">${s.emoji} ${escapeHtml(s.name)} (${s.availablePoints} pts avail)</option>`)
-    .join('');
-  if (prevLineStore && computed.some(s => s.id === prevLineStore)) {
-    selectLineStore.value = prevLineStore;
+  // Rounds schedule list
+  const roundsListEl = document.getElementById('schedule-rounds-list');
+  if (sched && Array.isArray(sched.rounds)) {
+    roundsListEl.innerHTML = sched.rounds.map(r => {
+      const rState = evt.roundStates?.[r.roundId];
+      const status = rState?.status || (nowMs >= r.endMs ? 'PAST' : 'UPCOMING');
+      return `
+        <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-arena-elevated/60 border border-white/5">
+          <div>
+            <span class="font-mono font-bold text-white">${r.label} ET</span>
+            <span class="text-[10px] text-zinc-400 ml-1.5">(Cutoff: ${formatEtTime(r.cutoffMs)})</span>
+          </div>
+          <span class="text-[10px] font-extrabold px-2 py-0.5 rounded ${
+            status === 'OPEN'
+              ? 'bg-emerald-500/20 text-emerald-300 animate-pulse'
+              : status === 'CLOSED' || status === 'PAST'
+              ? 'bg-zinc-800 text-zinc-500'
+              : 'bg-magenta/20 text-magenta-light'
+          }">${status}</span>
+        </div>
+      `;
+    }).join('');
   }
 
-  const koCost = Number(state.settings.koCost || 1);
-  const reviveCost = Number(state.settings.reviveCost || 1);
-
-  const attackers = computed.filter(s => s.availablePoints >= koCost && (!s.isEliminated || state.settings.koCanAttack));
-  selectAttacker.innerHTML = attackers.length
-    ? attackers.map(s => `<option value="${s.id}">${s.emoji} ${escapeHtml(s.name)} (${s.availablePoints} pts avail)</option>`).join('')
-    : `<option value="">No stores have ${koCost}+ available points</option>`;
-  if (prevAttacker && attackers.some(s => s.id === prevAttacker)) {
-    selectAttacker.value = prevAttacker;
-  }
-
-  const aliveTargets = computed.filter(s => !s.isEliminated);
-  selectTarget.innerHTML = aliveTargets.length
-    ? aliveTargets.map(s => `<option value="${s.id}">🎯 ${escapeHtml(s.name)} (${s.availablePoints} pts)</option>`).join('')
-    : `<option value="">No standing stores left!</option>`;
-  if (prevTarget && aliveTargets.some(s => s.id === prevTarget)) {
-    selectTarget.value = prevTarget;
-  } else if (aliveTargets.length > 1 && selectAttacker.value === selectTarget.value) {
-    const diffTarget = aliveTargets.find(t => t.id !== selectAttacker.value);
-    if (diffTarget) selectTarget.value = diffTarget.id;
-  }
-
-  const koTargets = computed.filter(s => s.isEliminated);
-  selectReviveTarget.innerHTML = koTargets.length
-    ? koTargets.map(s => `<option value="${s.id}">💀 ${escapeHtml(s.name)} (${s.availablePoints} pts avail)</option>`).join('')
-    : `<option value="">All stores are currently standing! 🛡️</option>`;
-  if (prevReviveTarget && koTargets.some(s => s.id === prevReviveTarget)) {
-    selectReviveTarget.value = prevReviveTarget;
-  }
-
-  const payers = computed.filter(s => s.availablePoints >= reviveCost);
-  selectRevivePayer.innerHTML = payers.length
-    ? payers.map(s => `<option value="${s.id}">${s.emoji} ${escapeHtml(s.name)} (${s.availablePoints} pts avail)</option>`).join('')
-    : `<option value="">No stores have ${reviveCost}+ available points</option>`;
-  if (prevRevivePayer && payers.some(s => s.id === prevRevivePayer)) {
-    selectRevivePayer.value = prevRevivePayer;
-  } else if (selectReviveTarget.value && payers.some(s => s.id === selectReviveTarget.value)) {
-    selectRevivePayer.value = selectReviveTarget.value;
+  // Elimination checkpoints list
+  const chkListEl = document.getElementById('schedule-checkpoints-list');
+  if (sched && Array.isArray(sched.eliminationCheckpoints)) {
+    chkListEl.innerHTML = sched.eliminationCheckpoints.map(c => {
+      const proc = evt.processedCheckpoints?.[c.checkpointId];
+      return `
+        <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-arena-elevated/60 border border-white/5">
+          <div>
+            <span class="font-mono font-bold text-white">${c.label} ET</span>
+            <span class="text-[10px] text-zinc-400 ml-1.5">${c.isPowerPhase ? '(Power Phase - Permanent)' : '(Pre-Power Phase - Revivable)'}</span>
+          </div>
+          <span class="text-[10px] font-extrabold px-2 py-0.5 rounded ${
+            proc
+              ? 'bg-red-500/20 text-red-300'
+              : 'bg-zinc-800 text-zinc-300'
+          }">${proc ? (proc.eliminatedStoreId ? `KO: ${proc.eliminatedStoreId}` : proc.status) : 'SCHEDULED'}</span>
+        </div>
+      `;
+    }).join('');
   }
 }
 
-function renderActivityFeed(storeById) {
+function renderStoreCombatDeck(storesList, myStore, evt, sched, nowMs) {
+  const statusPill = document.getElementById('store-battle-status-pill');
+  const displayEl = document.getElementById('battle-my-store-display');
+  const ptsEl = document.getElementById('battle-my-store-pts');
+  const myStoreSelect = document.getElementById('select-combat-my-store');
+  const allowanceBadge = document.getElementById('store-allowance-badge');
+  const targetSelect = document.getElementById('select-store-battle-target');
+  const attackBtn = document.getElementById('btn-store-submit-attack');
+  const reviveBtn = document.getElementById('btn-store-submit-revive');
+  const shieldBtn = document.getElementById('btn-store-buy-shield');
+  const reviveCostLabel = document.getElementById('label-revive-cost-btn');
+
+  if (myStoreSelect) {
+    myStoreSelect.innerHTML = storesList
+      .map(s => `<option value="${s.id}">${s.emoji} ${escapeHtml(s.name)} (${formatBpDisplay(s.availableBp)} avail pts • ${s.status})</option>`)
+      .join('');
+    if (myStore) {
+      myStoreSelect.value = myStore.id;
+    }
+  }
+
+  const activeRound = evt.activeRoundId ? evt.roundStates?.[evt.activeRoundId] : null;
+  const isRoundOpen = Boolean(activeRound && activeRound.status === 'OPEN' && nowMs >= activeRound.startMs && nowMs < activeRound.endMs);
+  const isPowerPhase = evt.phase === 'POWER_PHASE' || (sched && nowMs >= sched.powerPhaseStartMs);
+
+  if (isRoundOpen) {
+    statusPill.className = 'text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-400/50 animate-pulse';
+    statusPill.textContent = `🔥 ROUND OPEN (${formatCountdown(activeRound.endMs - nowMs)})`;
+  } else {
+    statusPill.className = 'text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700';
+    statusPill.textContent = '⏳ BETWEEN ROUNDS';
+  }
+
+  if (myStore) {
+    displayEl.textContent = `${myStore.emoji} ${myStore.name}`;
+    ptsEl.textContent = `${formatBpDisplay(myStore.availableBp)} Avail Pts • ${myStore.status}`;
+  } else {
+    displayEl.textContent = 'Select Your Store';
+    ptsEl.textContent = 'Choose store below';
+  }
+
+  const attacksUsed = isRoundOpen && myStore ? Number(activeRound.attacksByStore?.[myStore.id] || 0) : 0;
+  allowanceBadge.textContent = `${attacksUsed} / 2 Used`;
+
+  // Populate eligible standing targets (excluding myStore and shielded stores)
+  const prevTarget = targetSelect.value;
+  const targets = storesList.filter(s => s.status === 'STANDING' && (!myStore || s.id !== myStore.id));
+  targetSelect.innerHTML = targets.length
+    ? targets.map(t => {
+        const isShielded = isRoundOpen && t.shield?.protectedUntilMs && nowMs < t.shield.protectedUntilMs;
+        const isDeflecting = isRoundOpen && activeRound.deflectionSnapshot?.[t.id] && t.deflection.activeForRoundId === activeRound.roundId && t.deflection.brokenInRoundId !== activeRound.roundId;
+        return `<option value="${t.id}" ${isShielded ? 'disabled' : ''}>🎯 ${escapeHtml(t.name)} (${formatBpDisplay(t.availableBp)} pts)${isShielded ? ' [🛡️ SHIELDED]' : isDeflecting ? ' [🛡️ DEFLECTING]' : ''}</option>`;
+      }).join('')
+    : '<option value="">No standing targets available</option>';
+
+  if (prevTarget && targets.some(t => t.id === prevTarget)) {
+    targetSelect.value = prevTarget;
+  }
+
+  updateAttackModeOptions();
+
+  // Enable/disable buttons
+  const canAttack = Boolean(
+    isRoundOpen &&
+      myStore &&
+      myStore.status === 'STANDING' &&
+      attacksUsed < 2 &&
+      myStore.availableBp >= 20000
+  );
+  attackBtn.disabled = !canAttack;
+
+  const reviveCostPts = isRoundOpen ? 400 : 200;
+  reviveCostLabel.textContent = reviveCostPts;
+  const canRevive = Boolean(
+    evt.status === 'ACTIVE' &&
+      !isPowerPhase &&
+      myStore &&
+      myStore.status === 'KNOCKED_OUT' &&
+      myStore.availableBp >= reviveCostPts * 100
+  );
+  reviveBtn.disabled = !canRevive;
+
+  const canBuyShield = Boolean(
+    evt.status === 'ACTIVE' &&
+      isPowerPhase &&
+      !isRoundOpen &&
+      myStore &&
+      myStore.status === 'STANDING' &&
+      myStore.availableBp >= 60000 &&
+      !myStore.shield?.queuedForRoundId
+  );
+  shieldBtn.disabled = !canBuyShield;
+}
+
+function updateAttackModeOptions() {
+  if (!serverState || !serverState.currentEvent) return;
+  const evt = serverState.currentEvent;
+  const activeRound = evt.activeRoundId ? evt.roundStates?.[evt.activeRoundId] : null;
+  const targetId = document.getElementById('select-store-battle-target')?.value;
+  const modeSelect = document.getElementById('select-store-attack-mode');
+  if (!modeSelect) return;
+
+  const myStoreId = clientSession.storeId;
+  const canUseBreaker = Boolean(
+    activeRound &&
+      myStoreId &&
+      targetId &&
+      activeRound.deflectedHits?.[myStoreId]?.[targetId] &&
+      serverState.stores?.[targetId]?.deflection?.activeForRoundId === activeRound.roundId
+  );
+
+  const breakerOpt = modeSelect.querySelector('option[value="BREAKER"]');
+  if (breakerOpt) {
+    breakerOpt.disabled = !canUseBreaker;
+    breakerOpt.textContent = canUseBreaker
+      ? '💥 Deflection Breaker UNLOCKED! (400 pts → 500 dmg & Breaks Deflection)'
+      : '💥 Deflection Breaker (Requires landing 1st deflected hit on this target in this round)';
+  }
+  if (!canUseBreaker && modeSelect.value === 'BREAKER') {
+    modeSelect.value = 'NORMAL';
+  }
+}
+
+function renderAdminPanel(storesList, evt, sched, nowMs) {
+  // Populate store selects in Admin tabs
+  ['select-line-store', 'select-audit-store', 'select-weekly-winner-store'].forEach(selId => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = storesList.map(s => `<option value="${s.id}">${s.emoji} ${escapeHtml(s.name)} (${formatBpDisplay(s.availableBp)} avail)</option>`).join('');
+    if (prev && storesList.some(s => s.id === prev)) sel.value = prev;
+  });
+
+  // Event lifecycle timestamps
+  const tsInfo = document.getElementById('admin-event-timestamps-info');
+  if (tsInfo) {
+    tsInfo.innerHTML = `
+      <div>Date: <strong>${evt.dateKey} (${evt.weekdayShort})</strong> • Status: <strong>${evt.status}</strong></div>
+      <div>Scheduled: ${formatEtTime(evt.scheduledStartMs)} – ${formatEtTime(evt.scheduledCloseMs)} ET</div>
+      <div>Actual Start: ${evt.actualStartMs ? formatEtTime(evt.actualStartMs) + ' ET' : 'Not started'}</div>
+      <div>Actual Close: ${evt.actualCloseMs ? formatEtTime(evt.actualCloseMs) + ' ET' : '—'}</div>
+    `;
+  }
+
+  // Enabled weekdays toggles
+  const daysBox = document.getElementById('admin-enabled-days-toggles');
+  if (daysBox && serverState.enabledWeekdays) {
+    daysBox.innerHTML = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => {
+      const on = Boolean(serverState.enabledWeekdays[day]);
+      return `
+        <button type="button" onclick="toggleEnabledWeekday('${day}', ${!on})"
+                class="py-1.5 rounded-lg text-[10px] font-extrabold border transition ${
+                  on ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300' : 'bg-zinc-900 border-zinc-700 text-zinc-500'
+                }">
+          ${day}
+        </button>
+      `;
+    }).join('');
+  }
+
+  // Elimination Tie Resolution Box
+  const tieContent = document.getElementById('admin-elim-tie-content');
+  if (tieContent) {
+    if (evt.pendingEliminationTie) {
+      const tie = evt.pendingEliminationTie;
+      tieContent.innerHTML = `
+        <div class="mb-2 text-amber-200">Checkpoint <strong>${tie.checkpointLabel} ET</strong> paused. Select which tied candidate store is eliminated:</div>
+        <div class="flex flex-wrap gap-1.5">
+          ${tie.candidateSnapshots.map(c => `
+            <button type="button" onclick="adminResolveCheckpointTie('${c.storeId}')"
+                    class="px-2.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-extrabold text-[10px]">
+              Eliminate ${escapeHtml(c.name)} (${c.availablePoints} avail)
+            </button>
+          `).join('')}
+        </div>
+      `;
+    } else {
+      tieContent.textContent = 'No unresolved elimination checkpoint ties.';
+    }
+  }
+
+  // Reconciliation issues queue
+  const recList = document.getElementById('admin-reconciliation-list');
+  if (recList) {
+    const unresolved = (serverState.reconciliationIssues || []).filter(i => !i.resolved);
+    if (unresolved.length === 0) {
+      recList.innerHTML = '<div class="text-zinc-500">All sheet imports & sales reconciled cleanly.</div>';
+    } else {
+      recList.innerHTML = unresolved.map(iss => `
+        <div class="p-2 rounded-lg bg-arena-elevated border border-pink-500/30 space-y-1">
+          <div class="font-bold text-pink-300">${escapeHtml(iss.type)} — ${escapeHtml(iss.storeId)}</div>
+          <div class="text-[10px] text-zinc-300">${escapeHtml(iss.description)}</div>
+          <div class="flex gap-1.5 pt-1">
+            <button type="button" onclick="adminResolveIssue('${iss.issueId}', '${iss.type === 'LATE_CROSS_BOUNDARY_SALE' ? 'APPLY_CURRENT' : 'APPLY'}')"
+                    class="px-2 py-1 rounded bg-emerald-600 text-white text-[10px] font-bold">
+              Approve / Apply
+            </button>
+            <button type="button" onclick="adminResolveIssue('${iss.issueId}', 'DISMISS')"
+                    class="px-2 py-1 rounded bg-zinc-700 text-zinc-200 text-[10px] font-bold">
+              Dismiss
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  // Store Access Codes Provisioning inputs
+  const codesBox = document.getElementById('admin-store-codes-inputs');
+  if (codesBox && !codesBox.hasChildNodes()) {
+    codesBox.innerHTML = storesList.map(s => {
+      const isConfigured = serverState.authStatus?.configuredStoreAuth?.[s.id];
+      return `
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] font-semibold text-zinc-200 w-40 truncate">${s.emoji} ${escapeHtml(s.name)}</span>
+          <input type="text" data-store-code-input="${s.id}" placeholder="${isConfigured ? 'Configured (enter to rotate)' : 'Set access code...'}"
+                 class="flex-1 bg-arena-bg border border-arena-border rounded-lg px-2.5 py-1 text-xs font-mono text-white" />
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+function renderActivityFeed(storesMap) {
   const feedEl = document.getElementById('combat-feed');
   const feedCount = document.getElementById('feed-count');
-  const undoBtn = document.getElementById('btn-undo-last');
-  const isAdmin = state.auth.isAdmin;
 
-  const combined = [
-    ...state.combatLog.map(e => ({ ...e, feedCategory: 'COMBAT' })),
-    ...state.salesLog.map(s => ({ ...s, feedCategory: 'SALE' }))
-  ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const combatItems = (serverState.combatLog || []).map(c => ({ ...c, feedKind: 'COMBAT' }));
+  const salesItems = (serverState.salesLog || []).slice(-30).map(s => ({ ...s, feedKind: 'SALE', timestampMs: s.ingestedAtMs }));
+  const combined = [...combatItems, ...salesItems].sort((a, b) => (b.timestampMs || 0) - (a.timestampMs || 0));
 
   feedCount.textContent = combined.length;
-  undoBtn.disabled = state.combatLog.length === 0;
 
   if (combined.length === 0) {
     feedEl.innerHTML = `
       <div class="text-center py-8 px-4 text-zinc-500 text-xs">
-        <div class="text-3xl mb-2">🥊👀</div>
-        <div class="font-bold text-zinc-300">WHO’S GETTING KNOCKED OUT FIRST?!</div>
-        <p class="mt-1">Live Knockouts, Revives, and newly logged store lines will appear here automatically!</p>
+        <div class="text-3xl mb-2">🥊🔥</div>
+        <div class="font-bold text-zinc-300">KNOCKOUT BLITZ ARENA READY</div>
+        <p class="mt-1">Attacks, Deflections, Breakers, Shields, Revivals, and Sales Cutoffs will stream live here.</p>
       </div>
     `;
     return;
   }
 
-  feedEl.innerHTML = combined.map(evt => {
-    const timeStr = new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    if (evt.feedCategory === 'SALE') {
-      const store = storeById[evt.storeId] || { name: evt.storeId, emoji: '🏪' };
-      const meta = LINE_LABELS[evt.category] || { name: evt.category, emoji: '⚡', ptsUnit: '' };
-      const displayQty = evt.category === 'acc' ? `$${evt.qty}` : `${evt.qty > 0 ? '+' : ''}${evt.qty}`;
+  feedEl.innerHTML = combined.slice(0, 50).map(item => {
+    const timeStr = formatEtTime(item.timestampMs);
+    if (item.feedKind === 'SALE') {
+      const st = storesMap[item.storeId] || { name: item.storeId };
       return `
-        <div class="p-2.5 rounded-xl bg-arena-elevated/80 border border-white/10 flex items-start justify-between gap-2 text-xs">
+        <div class="p-2.5 rounded-xl bg-arena-elevated/80 border border-white/10 text-xs flex items-center justify-between">
           <div>
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="font-extrabold text-amber-300 uppercase tracking-wider">${meta.emoji} LINE ADDED</span>
-              <span class="text-[10px] text-zinc-500 font-mono">${timeStr}</span>
-            </div>
-            <div class="mt-0.5 text-zinc-200">
-              <strong class="text-white">${escapeHtml(store.name)}</strong> logged <strong class="text-magenta-light">${displayQty} ${escapeHtml(meta.name)}</strong>
-            </div>
-            ${evt.note ? `<div class="mt-0.5 text-[11px] text-zinc-400">${escapeHtml(evt.note)}</div>` : ''}
+            <span class="font-bold text-amber-300">+${item.points} PTS</span>
+            <span class="text-zinc-300 ml-1">${escapeHtml(st.name)} (${escapeHtml(item.category)})</span>
+            <span class="text-[10px] ml-1 px-1.5 py-0.5 rounded ${item.status === 'RELEASED' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-purple-500/20 text-purple-300'}">${item.status}</span>
           </div>
-          ${isAdmin ? `<button onclick="deleteSaleEvent('${evt.id}')" class="text-zinc-500 hover:text-red-400 p-1" title="Undo & remove line">✕</button>` : ''}
+          <span class="text-[10px] font-mono text-zinc-500">${timeStr}</span>
         </div>
       `;
     }
 
-    const actor = storeById[evt.attackerId] || { name: evt.attackerId, emoji: '🥊' };
-    const target = storeById[evt.targetId] || { name: evt.targetId, emoji: '🎯' };
-
-    if (evt.type === 'KO') {
+    if (item.type === 'ATTACK') {
+      const atk = storesMap[item.attackerId] || { name: item.attackerId };
+      const tgt = storesMap[item.targetId] || { name: item.targetId };
       return `
-        <div class="p-3 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start justify-between gap-2 text-xs">
-          <div>
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="font-extrabold text-red-400 uppercase tracking-wider">🥊 KNOCKOUT!</span>
-              <span class="text-[10px] text-zinc-500 font-mono">${timeStr}</span>
-              <span class="text-[10px] px-1.5 py-0.2 rounded bg-red-500/20 text-red-300 font-mono">-${evt.cost} pt</span>
-            </div>
-            <div class="mt-1 text-zinc-200">
-              <strong class="text-white">${escapeHtml(actor.name)}</strong> eliminated <strong class="text-red-300">${escapeHtml(target.name)}</strong>!
-            </div>
-            ${evt.note ? `<div class="mt-1 text-[11px] italic text-amber-300">"${escapeHtml(evt.note)}"</div>` : ''}
+        <div class="p-3 rounded-xl ${item.resultingKnockout ? 'bg-red-500/15 border-red-500/40' : 'bg-magenta/10 border-magenta/30'} border text-xs">
+          <div class="flex items-center justify-between">
+            <span class="font-extrabold ${item.resultingKnockout ? 'text-red-400' : 'text-magenta-light'}">
+              ${item.resultingKnockout ? '🥊 KNOCKOUT!' : `⚔️ ${item.attackType}`}
+            </span>
+            <span class="text-[10px] font-mono text-zinc-400">${timeStr} ET</span>
           </div>
-          ${isAdmin ? `<button onclick="deleteCombatEvent('${evt.id}')" class="text-zinc-500 hover:text-red-400 p-1" title="Remove entry">✕</button>` : ''}
-        </div>
-      `;
-    } else {
-      const selfRevive = evt.attackerId === evt.targetId;
-      return `
-        <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-start justify-between gap-2 text-xs">
-          <div>
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <span class="font-extrabold text-emerald-400 uppercase tracking-wider">⚡ REVIVED!</span>
-              <span class="text-[10px] text-zinc-500 font-mono">${timeStr}</span>
-              <span class="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono">-${evt.cost} pt</span>
-            </div>
-            <div class="mt-1 text-zinc-200">
-              ${
-                selfRevive
-                  ? `<strong class="text-emerald-300">${escapeHtml(target.name)}</strong> fought their way back into the competition!`
-                  : `<strong class="text-white">${escapeHtml(actor.name)}</strong> revived <strong class="text-emerald-300">${escapeHtml(target.name)}</strong>!`
-              }
-            </div>
-            ${evt.note ? `<div class="mt-1 text-[11px] italic text-emerald-200">"${escapeHtml(evt.note)}"</div>` : ''}
+          <div class="mt-1 text-zinc-200">
+            <strong>${escapeHtml(atk.name)}</strong> (-${item.costPoints}) hit <strong>${escapeHtml(tgt.name)}</strong> for <strong>-${item.effectiveDamagePoints} dmg</strong> (${item.targetBalanceBefore} → ${item.targetBalanceAfter} pts)
           </div>
-          ${isAdmin ? `<button onclick="deleteCombatEvent('${evt.id}')" class="text-zinc-500 hover:text-red-400 p-1" title="Remove entry">✕</button>` : ''}
         </div>
       `;
     }
+
+    if (item.type === 'REVIVE') {
+      const st = storesMap[item.storeId] || { name: item.storeId };
+      return `
+        <div class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs">
+          <div class="flex justify-between">
+            <span class="font-extrabold text-emerald-400">⚡ SELF-REVIVED (-${item.costPoints} pts)</span>
+            <span class="text-[10px] font-mono text-zinc-400">${timeStr} ET</span>
+          </div>
+          <div class="mt-0.5 text-zinc-200"><strong>${escapeHtml(st.name)}</strong> restored to Standing (${item.balanceAfter} pts left).</div>
+        </div>
+      `;
+    }
+
+    if (item.type === 'SHIELD_PURCHASE') {
+      const st = storesMap[item.storeId] || { name: item.storeId };
+      return `
+        <div class="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-xs">
+          <div class="flex justify-between">
+            <span class="font-extrabold text-cyan-300">🛡️ POWER SHIELD QUEUED (-600 pts)</span>
+            <span class="text-[10px] font-mono text-zinc-400">${timeStr} ET</span>
+          </div>
+          <div class="mt-0.5 text-zinc-200"><strong>${escapeHtml(st.name)}</strong> queued a 3-min Shield for ${escapeHtml(item.queuedForRoundLabel)}.</div>
+        </div>
+      `;
+    }
+
+    const tgt = storesMap[item.targetId] || { name: item.targetId };
+    return `
+      <div class="p-2.5 rounded-xl bg-red-950/40 border border-red-500/40 text-xs">
+        <div class="flex justify-between">
+          <span class="font-extrabold text-red-400">💀 ${escapeHtml(item.type)}</span>
+          <span class="text-[10px] font-mono text-zinc-400">${timeStr} ET</span>
+        </div>
+        <div class="mt-0.5 text-zinc-200"><strong>${escapeHtml(tgt.name)}</strong> eliminated (${escapeHtml(item.checkpointLabel || item.reason || '')}).</div>
+      </div>
+    `;
   }).join('');
 }
 
-// DOM Event Listeners
-document.addEventListener('DOMContentLoaded', () => {
-  loadLocalCache();
-
-  // Prompt user to pick which store they are on first visit (unless ?admin=1)
-  if (window.location.search.includes('admin') && !state.auth.isAdmin) {
-    setTimeout(openAdminLoginModal, 300);
-  } else if (!state.auth.myStoreId) {
-    setTimeout(openStorePickerModal, 400);
+// Global Admin Helper Actions
+window.adminQuickSale = async function (category, qty) {
+  const storeId = document.getElementById('select-line-store')?.value;
+  if (!storeId) return;
+  try {
+    await postServerAction({
+      action: 'admin_log_sale',
+      storeId,
+      category,
+      qty
+    });
+  } catch (err) {
+    alert(err.message);
   }
+};
 
-  // Store Identity Picker modal triggers
-  document.getElementById('btn-change-my-store')?.addEventListener('click', openStorePickerModal);
-  document.getElementById('btn-switch-store-inline')?.addEventListener('click', openStorePickerModal);
+window.toggleEnabledWeekday = async function (day, enabled) {
+  try {
+    await postServerAction({
+      action: 'admin_set_enabled_days',
+      enabledWeekdays: { [day]: enabled }
+    });
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
+window.adminResolveCheckpointTie = async function (eliminatedStoreId) {
+  const note = prompt(`Enter admin audit note for eliminating ${eliminatedStoreId}:`) || 'Resolved checkpoint tie';
+  try {
+    await postServerAction({
+      action: 'admin_resolve_elimination_tie',
+      eliminatedStoreId,
+      note
+    });
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
+window.adminResolveIssue = async function (issueId, resolution) {
+  try {
+    await postServerAction({
+      action: 'admin_resolve_reconciliation_issue',
+      issueId,
+      resolution
+    });
+  } catch (err) {
+    alert(err.message);
+  }
+};
+
+// Shareable PNG Status Report Generator (Section 20)
+function exportShareablePngReport() {
+  if (!serverState) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = 1200;
+  canvas.height = 760;
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  const grad = ctx.createLinearGradient(0, 0, 1200, 760);
+  grad.addColorStop(0, '#09090E');
+  grad.addColorStop(1, '#180B16');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 1200, 760);
+
+  // Header
+  ctx.fillStyle = '#E20074';
+  ctx.fillRect(0, 0, 1200, 8);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 42px sans-serif';
+  ctx.fillText('KNOCKOUT BLITZ — PHOENIX DISTRICT STATUS REPORT', 40, 62);
+
+  ctx.fillStyle = '#FBBF24';
+  ctx.font = 'bold 18px monospace';
+  const evt = serverState.currentEvent;
+  ctx.fillText(
+    `Date: ${evt?.dateKey || ''} (${evt?.weekdayShort || ''}) | Phase: ${evt?.phase || ''} | Generated: ${formatEtClock(getServerNowMs())} ET`,
+    40,
+    95
+  );
+
+  // Table Headers
+  const headers = ['RANK', 'STORE', 'STATUS', 'AVAILABLE PTS', 'EARNED PTS', 'PENDING', 'SPENT / DMG', 'WEEKLY AVG'];
+  const colX = [40, 110, 410, 560, 720, 860, 980, 1100];
+  ctx.fillStyle = '#9CA3AF';
+  ctx.font = 'bold 14px monospace';
+  headers.forEach((h, i) => ctx.fillText(h, colX[i], 140));
+
+  ctx.strokeStyle = '#252738';
+  ctx.beginPath();
+  ctx.moveTo(40, 152);
+  ctx.lineTo(1160, 152);
+  ctx.stroke();
+
+  const storesList = ROSTER_ORDER.map(id => serverState.stores?.[id]).filter(Boolean);
+  storesList.sort((a, b) => b.availableBp - a.availableBp || b.totalEarnedBp - a.totalEarnedBp);
+  const wkMap = {};
+  (serverState.weeklyStandings?.standings || []).forEach(w => {
+    wkMap[w.storeId] = w;
+  });
+
+  storesList.forEach((s, idx) => {
+    const y = 195 + idx * 56;
+    ctx.fillStyle = s.status === 'STANDING' ? 'rgba(18, 19, 28, 0.9)' : 'rgba(45, 14, 22, 0.7)';
+    ctx.fillRect(35, y - 32, 1130, 46);
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 20px monospace';
+    ctx.fillText(`#${idx + 1}`, colX[0], y);
+    ctx.fillText(s.name, colX[1], y);
+
+    ctx.fillStyle = s.status === 'STANDING' ? '#34D399' : '#F87171';
+    ctx.font = 'bold 16px monospace';
+    ctx.fillText(s.status, colX[2], y);
+
+    ctx.fillStyle = '#FBBF24';
+    ctx.font = 'bold 22px monospace';
+    ctx.fillText(formatBpDisplay(s.availableBp), colX[3], y);
+
+    ctx.fillStyle = '#34D399';
+    ctx.font = 'bold 18px monospace';
+    ctx.fillText(formatBpDisplay(s.totalEarnedBp), colX[4], y);
+
+    ctx.fillStyle = '#C084FC';
+    ctx.fillText(`+${formatBpDisplay(s.pendingBp)}`, colX[5], y);
+
+    ctx.fillStyle = '#FB923C';
+    const spent = s.attackSpentBp + s.revivalSpentBp + s.shieldSpentBp;
+    ctx.fillText(`-${formatBpDisplay(spent)} / -${formatBpDisplay(s.incomingDamageBp)}`, colX[6], y);
+
+    ctx.fillStyle = '#38BDF8';
+    ctx.fillText(String(wkMap[s.id]?.averageDailyEarnedPoints || 0), colX[7], y);
+  });
+
+  const link = document.createElement('a');
+  link.download = `knockout-blitz-report-${evt?.dateKey || 'live'}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+// Wire DOM Events
+document.addEventListener('DOMContentLoaded', () => {
+  loadClientSession();
+  if (serverState) renderAll();
+  fetchAuthoritativeState();
+
+  setInterval(updateTelemetryTick, 1000);
+  setInterval(fetchAuthoritativeState, 4000);
+
+  // View Switcher Tabs
+  document.querySelectorAll('.view-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const v = btn.getAttribute('data-view');
+      clientSession.activeView = v;
+      document.getElementById('view-section-arena').classList.toggle('hidden', v !== 'arena');
+      document.getElementById('view-section-weekly').classList.toggle('hidden', v !== 'weekly');
+      document.getElementById('view-section-ledger').classList.toggle('hidden', v !== 'ledger');
+      document.getElementById('arena-filters-box').classList.toggle('hidden', v !== 'arena');
+    });
+  });
+
+  // Admin Sub-Tabs
+  document.querySelectorAll('.admin-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.admin-tab').forEach(b => {
+        b.classList.remove('active-lines');
+        b.classList.add('text-zinc-400');
+      });
+      btn.classList.add('active-lines');
+      btn.classList.remove('text-zinc-400');
+      const tab = btn.getAttribute('data-admintab');
+      ['sales', 'lifecycle', 'audit', 'auth'].forEach(t => {
+        document.getElementById(`admintab-${t}`)?.classList.toggle('hidden', t !== tab);
+      });
+    });
+  });
+
+  // Filter & Sort
+  document.getElementById('filter-select')?.addEventListener('change', e => {
+    clientSession.filter = e.target.value;
+    renderAll();
+  });
+  document.getElementById('sort-select')?.addEventListener('change', e => {
+    clientSession.sortBy = e.target.value;
+    renderAll();
+  });
+  document.getElementById('select-store-battle-target')?.addEventListener('change', updateAttackModeOptions);
+
+  // Direct Store Selector in Combat Deck & Modal (No Store Login Required)
+  const setPlayingStore = (storeId) => {
+    if (!storeId) return;
+    clientSession.storeId = storeId;
+    clientSession.storeToken = '';
+    try {
+      localStorage.setItem(STORE_AUTH_KEY, JSON.stringify({ storeId, storeToken: '' }));
+      sessionStorage.setItem(STORE_AUTH_KEY, JSON.stringify({ storeId, storeToken: '' }));
+    } catch (e) {}
+    renderAll();
+  };
+
+  document.getElementById('select-combat-my-store')?.addEventListener('change', e => {
+    setPlayingStore(e.target.value);
+  });
+
+  const openStoreModal = () => {
+    const modal = document.getElementById('modal-pick-store');
+    const sel = document.getElementById('select-auth-store-id');
+    if (sel && serverState?.stores) {
+      sel.innerHTML = ROSTER_ORDER.map(id => {
+        const s = serverState.stores[id];
+        return s ? `<option value="${s.id}">${s.emoji} ${escapeHtml(s.name)}</option>` : '';
+      }).join('');
+      if (clientSession.storeId) sel.value = clientSession.storeId;
+    }
+    document.getElementById('store-auth-error')?.classList.add('hidden');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  };
+
+  document.getElementById('btn-change-my-store')?.addEventListener('click', openStoreModal);
   document.getElementById('btn-close-pick-store')?.addEventListener('click', () => {
     const m = document.getElementById('modal-pick-store');
     m.classList.add('hidden');
     m.classList.remove('flex');
   });
 
-  // Public Store Battle Window Submit buttons
-  document.getElementById('btn-store-submit-ko')?.addEventListener('click', executeStoreBattleKnockout);
-  document.getElementById('btn-store-submit-revive')?.addEventListener('click', executeStoreBattleRevive);
+  document.getElementById('form-store-auth')?.addEventListener('submit', e => {
+    e.preventDefault();
+    const storeId = document.getElementById('select-auth-store-id').value;
+    setPlayingStore(storeId);
+    const m = document.getElementById('modal-pick-store');
+    m.classList.add('hidden');
+    m.classList.remove('flex');
+  });
 
-  // Admin 5-Minute Battle Window buttons
-  document.getElementById('btn-admin-start-window')?.addEventListener('click', startFiveMinuteBattleWindow);
-  document.getElementById('btn-admin-stop-window')?.addEventListener('click', stopBattleWindow);
-  document.getElementById('btn-close-battle-window-top')?.addEventListener('click', stopBattleWindow);
+  // Store Combat Actions (Attack, Revive, Shield)
+  document.getElementById('btn-store-submit-attack')?.addEventListener('click', async () => {
+    const targetId = document.getElementById('select-store-battle-target').value;
+    const attackMode = document.getElementById('select-store-attack-mode').value;
+    const noteInput = document.getElementById('input-store-battle-note');
+    try {
+      await postServerAction({
+        action: 'store_attack',
+        storeId: clientSession.storeId,
+        targetId,
+        attackMode,
+        idempotencyKey: makeIdempotencyKey('atk'),
+        note: noteInput.value.trim()
+      });
+      noteInput.value = '';
+    } catch (err) {
+      alert(err.message);
+    }
+  });
 
-  // Filter buttons
-  document.querySelectorAll('.filter-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      state.ui.filter = btn.getAttribute('data-filter');
+  document.getElementById('btn-store-submit-revive')?.addEventListener('click', async () => {
+    try {
+      await postServerAction({
+        action: 'store_revive',
+        storeId: clientSession.storeId,
+        idempotencyKey: makeIdempotencyKey('rev')
+      });
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('btn-store-buy-shield')?.addEventListener('click', async () => {
+    try {
+      await postServerAction({
+        action: 'store_purchase_shield',
+        storeId: clientSession.storeId,
+        idempotencyKey: makeIdempotencyKey('shd')
+      });
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  // Admin Login / Logout
+  document.getElementById('btn-admin-toggle')?.addEventListener('click', () => {
+    if (clientSession.isAdmin) {
+      clientSession.isAdmin = false;
+      clientSession.adminToken = '';
+      clientSession.adminPin = '';
+      sessionStorage.removeItem(ADMIN_TOKEN_KEY);
       renderAll();
-    });
-  });
-
-  // Sort select
-  document.getElementById('sort-select').addEventListener('change', e => {
-    state.ui.sortBy = e.target.value;
-    renderAll();
-  });
-
-  // Admin Mode Tabs
-  document.getElementById('tab-mode-lines')?.addEventListener('click', () => setCommandMode('lines'));
-  document.getElementById('tab-mode-ko')?.addEventListener('click', () => setCommandMode('ko'));
-  document.getElementById('tab-mode-revive')?.addEventListener('click', () => setCommandMode('revive'));
-  document.getElementById('tab-mode-announce')?.addEventListener('click', () => setCommandMode('announce'));
-
-  // Custom Line Submit
-  document.getElementById('btn-submit-custom-line')?.addEventListener('click', () => {
-    const category = document.getElementById('select-custom-line-type').value;
-    const qty = parseFloat(document.getElementById('input-custom-line-qty').value);
-    const noteInput = document.getElementById('input-custom-line-note');
-    if (isNaN(qty) || qty === 0) {
-      alert('Enter a valid quantity or dollar amount!');
-      return;
-    }
-    window.quickLogSale(category, qty, (noteInput.value || '').trim());
-    noteInput.value = '';
-  });
-
-  // Broadcast Announcement handlers
-  document.getElementById('btn-post-announce')?.addEventListener('click', () => {
-    const txt = (document.getElementById('input-announce-text').value || '').trim();
-    if (!txt) return;
-    state.announcement = { text: txt, active: true, updatedAt: new Date().toISOString() };
-    pushServerState();
-  });
-  const clearAnnounce = () => {
-    state.announcement = { text: '', active: false, updatedAt: new Date().toISOString() };
-    pushServerState();
-  };
-  document.getElementById('btn-remove-announce')?.addEventListener('click', clearAnnounce);
-  document.getElementById('btn-clear-announcement')?.addEventListener('click', clearAnnounce);
-
-  // Add Custom Store Row
-  document.getElementById('btn-add-custom-store')?.addEventListener('click', () => {
-    const idInput = document.getElementById('input-new-store-id');
-    const nameInput = document.getElementById('input-new-store-name');
-    const id = (idInput.value || '').trim().toUpperCase();
-    const teamName = (nameInput.value || '').trim();
-    if (!id || !teamName) {
-      alert('Enter both a Store ID and Team Name!');
-      return;
-    }
-    state.customStores.push({
-      id,
-      name: `${id} - ${teamName}`,
-      emoji: '🔥'
-    });
-    idInput.value = '';
-    nameInput.value = '';
-    pushServerState();
-  });
-
-  // Execute KO & Revive (Admin)
-  document.getElementById('btn-execute-ko').addEventListener('click', executeKnockout);
-  document.getElementById('btn-execute-revive').addEventListener('click', executeRevive);
-  document.getElementById('btn-undo-last').addEventListener('click', undoLastAction);
-
-  // Sync Now
-  document.getElementById('btn-sync-now').addEventListener('click', syncAll);
-
-  // Admin Login / Logout Button
-  document.getElementById('btn-admin-toggle').addEventListener('click', () => {
-    if (state.auth.isAdmin) {
-      lockAdminMode();
     } else {
-      openAdminLoginModal();
+      const m = document.getElementById('modal-admin-login');
+      document.getElementById('admin-pin-error').classList.add('hidden');
+      document.getElementById('input-admin-pin').value = '';
+      m.classList.remove('hidden');
+      m.classList.add('flex');
     }
   });
 
-  document.getElementById('btn-close-admin-login').addEventListener('click', () => {
+  document.getElementById('btn-close-admin-login')?.addEventListener('click', () => {
     const m = document.getElementById('modal-admin-login');
     m.classList.add('hidden');
     m.classList.remove('flex');
   });
 
-  document.getElementById('form-admin-pin').addEventListener('submit', async e => {
+  document.getElementById('form-admin-pin')?.addEventListener('submit', async e => {
     e.preventDefault();
     const pin = document.getElementById('input-admin-pin').value.trim();
-    const ok = await verifyAndUnlockAdmin(pin);
-    if (ok) {
+    const errEl = document.getElementById('admin-pin-error');
+    errEl.classList.add('hidden');
+    try {
+      const res = await fetch('/api/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify_admin', pin })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        errEl.textContent = data.error || 'Invalid Admin PIN';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      clientSession.isAdmin = true;
+      clientSession.adminToken = data.adminToken || '';
+      clientSession.adminPin = pin;
+      sessionStorage.setItem(ADMIN_TOKEN_KEY, JSON.stringify({ adminToken: clientSession.adminToken, adminPin: pin }));
       const m = document.getElementById('modal-admin-login');
       m.classList.add('hidden');
       m.classList.remove('flex');
       renderAll();
-    } else {
-      document.getElementById('admin-pin-error').classList.remove('hidden');
+    } catch (err) {
+      errEl.textContent = 'Cannot verify Admin credentials while offline.';
+      errEl.classList.remove('hidden');
     }
   });
 
-  // Sound toggle
+  // Admin Sales Entry
+  document.getElementById('btn-submit-custom-line')?.addEventListener('click', async () => {
+    const storeId = document.getElementById('select-line-store').value;
+    const category = document.getElementById('select-custom-line-type').value;
+    const qty = parseFloat(document.getElementById('input-custom-line-qty').value);
+    const note = document.getElementById('input-custom-line-note').value.trim();
+    try {
+      await postServerAction({ action: 'admin_log_sale', storeId, category, qty, note });
+      document.getElementById('input-custom-line-note').value = '';
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('btn-admin-sync-sheet')?.addEventListener('click', async () => {
+    try {
+      await postServerAction({ action: 'admin_sync_sheet' });
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  // Admin Event Lifecycle
+  document.getElementById('btn-admin-start-event')?.addEventListener('click', async () => {
+    try {
+      await postServerAction({ action: 'admin_start_event' });
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('btn-admin-pause-resume')?.addEventListener('click', async () => {
+    const isPaused = serverState?.currentEvent?.status === 'PAUSED';
+    try {
+      await postServerAction({ action: isPaused ? 'admin_resume_event' : 'admin_pause_event' });
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('btn-admin-stop-event')?.addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to stop and finalize the current daily event?')) return;
+    try {
+      await postServerAction({ action: 'admin_stop_event', confirm: true });
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('btn-admin-announce-round')?.addEventListener('click', async () => {
+    const mins = parseFloat(document.getElementById('input-bonus-round-minutes').value) || 6;
+    const startMs = getServerNowMs() + Math.ceil(mins * 60 * 1000);
+    try {
+      await postServerAction({ action: 'admin_announce_round', startMs });
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  // Admin Audited Corrections & Weekly Ties
+  document.getElementById('btn-submit-audit-correction')?.addEventListener('click', async () => {
+    const storeId = document.getElementById('select-audit-store').value;
+    const ptsVal = document.getElementById('input-audit-points').value.trim();
+    const statusVal = document.getElementById('select-audit-status').value;
+    const reason = document.getElementById('input-audit-reason').value.trim();
+    if (!reason) {
+      alert('An audit reason is required!');
+      return;
+    }
+    try {
+      if (ptsVal && Number(ptsVal) !== 0) {
+        await postServerAction({ action: 'admin_adjust_bonus', storeId, points: Number(ptsVal), reason });
+      }
+      if (statusVal) {
+        await postServerAction({ action: 'admin_correct_store_status', storeId, status: statusVal, reason });
+      }
+      document.getElementById('input-audit-points').value = '';
+      document.getElementById('input-audit-reason').value = '';
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('btn-resolve-weekly-winner')?.addEventListener('click', async () => {
+    const winnerStoreId = document.getElementById('select-weekly-winner-store').value;
+    const reason = document.getElementById('input-weekly-tie-reason').value.trim();
+    try {
+      await postServerAction({ action: 'admin_resolve_weekly_tie', winnerStoreId, isSharedResult: false, reason });
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('btn-resolve-weekly-shared')?.addEventListener('click', async () => {
+    const reason = document.getElementById('input-weekly-tie-reason').value.trim();
+    const tiedIds = serverState?.weeklyStandings?.tiedTopStoreIds || [];
+    try {
+      await postServerAction({
+        action: 'admin_resolve_weekly_tie',
+        isSharedResult: true,
+        sharedStoreIds: tiedIds,
+        reason
+      });
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  // Save Store Access Codes
+  document.getElementById('btn-save-store-codes')?.addEventListener('click', async () => {
+    const inputs = document.querySelectorAll('[data-store-code-input]');
+    const storeAccessCodes = {};
+    inputs.forEach(inp => {
+      const id = inp.getAttribute('data-store-code-input');
+      const val = inp.value.trim();
+      if (id && val) storeAccessCodes[id] = val;
+    });
+    try {
+      await postServerAction({ action: 'admin_set_store_access_codes', storeAccessCodes });
+      inputs.forEach(inp => { inp.value = ''; });
+      alert('Store Access Codes saved to durable server storage.');
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  // Broadcast Banner
+  document.getElementById('btn-post-announce')?.addEventListener('click', async () => {
+    const text = document.getElementById('input-announce-text').value.trim();
+    try {
+      await postServerAction({ action: 'admin_set_announcement', text, active: Boolean(text) });
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+  document.getElementById('btn-clear-announcement')?.addEventListener('click', async () => {
+    try {
+      await postServerAction({ action: 'admin_set_announcement', text: '', active: false });
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  // Sync, PNG Export, Rules, Sound
+  document.getElementById('btn-sync-now')?.addEventListener('click', fetchAuthoritativeState);
+  document.getElementById('btn-export-png')?.addEventListener('click', exportShareablePngReport);
+
+  document.getElementById('btn-open-rules')?.addEventListener('click', () => {
+    const m = document.getElementById('modal-rules');
+    m.classList.remove('hidden');
+    m.classList.add('flex');
+  });
+  document.getElementById('btn-close-rules')?.addEventListener('click', () => {
+    const m = document.getElementById('modal-rules');
+    m.classList.add('hidden');
+    m.classList.remove('flex');
+  });
+
   const soundBtn = document.getElementById('btn-sound-toggle');
-  const updateSoundBtn = () => {
-    soundBtn.textContent = state.settings.soundEnabled ? '🔊' : '🔇';
-  };
-  updateSoundBtn();
-  soundBtn.addEventListener('click', () => {
-    state.settings.soundEnabled = !state.settings.soundEnabled;
-    updateSoundBtn();
+  soundBtn?.addEventListener('click', () => {
+    clientSession.soundEnabled = !clientSession.soundEnabled;
+    soundBtn.textContent = clientSession.soundEnabled ? '🔊' : '🔇';
   });
-
-  // Modals
-  const modalRules = document.getElementById('modal-rules');
-  const modalSettings = document.getElementById('modal-settings');
-
-  document.getElementById('btn-open-rules').addEventListener('click', () => {
-    modalRules.classList.remove('hidden');
-    modalRules.classList.add('flex');
-  });
-  document.getElementById('btn-close-rules').addEventListener('click', () => {
-    modalRules.classList.add('hidden');
-    modalRules.classList.remove('flex');
-  });
-
-  document.getElementById('btn-open-settings').addEventListener('click', () => {
-    document.getElementById('setting-ko-cost').value = state.settings.koCost;
-    document.getElementById('setting-revive-cost').value = state.settings.reviveCost;
-    document.getElementById('setting-ko-can-attack').checked = state.settings.koCanAttack;
-    document.getElementById('setting-sheet-url').value = state.settings.sheetUrl;
-    modalSettings.classList.remove('hidden');
-    modalSettings.classList.add('flex');
-  });
-  document.getElementById('btn-close-settings').addEventListener('click', () => {
-    modalSettings.classList.add('hidden');
-    modalSettings.classList.remove('flex');
-  });
-
-  document.getElementById('btn-save-settings').addEventListener('click', () => {
-    state.settings.koCost = Math.max(1, parseInt(document.getElementById('setting-ko-cost').value, 10) || 1);
-    state.settings.reviveCost = Math.max(1, parseInt(document.getElementById('setting-revive-cost').value, 10) || 1);
-    state.settings.koCanAttack = document.getElementById('setting-ko-can-attack').checked;
-    state.settings.sheetUrl = document.getElementById('setting-sheet-url').value.trim() || state.settings.sheetUrl;
-    modalSettings.classList.add('hidden');
-    modalSettings.classList.remove('flex');
-    pushServerState();
-    syncAll();
-  });
-
-  document.getElementById('btn-reset-combat').addEventListener('click', () => {
-    if (confirm('Reset all manually logged lines, Knockouts, and Revives on the server back to fresh?')) {
-      state.combatLog = [];
-      state.salesLog = [];
-      state.manualLines = {};
-      state.customStores = [];
-      state.announcement = { text: '', active: false, updatedAt: null };
-      state.battleWindow = { active: false, startedAt: null, endsAt: null, durationSeconds: 300 };
-      modalSettings.classList.add('hidden');
-      modalSettings.classList.remove('flex');
-      pushServerState();
-    }
-  });
-
-  // Initial render + Server & Sheet sync + live polling + 1s countdown ticker
-  renderAll();
-  syncAll();
-  setInterval(tickBattleWindowTimer, 1000);
-  setInterval(() => fetchServerState(true), 4000);
-  setInterval(syncAll, 60000);
 });

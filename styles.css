@@ -1,4 +1,4 @@
-/* Custom Styles & Animations for Knockout Sunday */
+/* Custom Styles & Animations for Knockout Blitz */
 
 .arena-grid-bg {
   background-image: 
@@ -7,42 +7,28 @@
   background-size: 40px 40px;
 }
 
+.view-tab,
 .filter-tab {
   color: #9ca3af;
   background: transparent;
 }
+.view-tab:hover,
 .filter-tab:hover {
   color: #ffffff;
   background: rgba(255, 255, 255, 0.05);
 }
+.view-tab.active,
 .filter-tab.active {
   background: linear-gradient(135deg, #E20074, #b91c1c);
   color: #ffffff;
   box-shadow: 0 4px 14px rgba(226, 0, 116, 0.35);
 }
 
+.admin-tab.active-lines,
 .mode-tab.active-lines {
   background: linear-gradient(135deg, #E20074, #9333ea);
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(226, 0, 116, 0.35);
-}
-
-.mode-tab.active-ko {
-  background: linear-gradient(135deg, #dc2626, #E20074);
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
-}
-
-.mode-tab.active-revive {
-  background: linear-gradient(135deg, #059669, #0d9488);
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);
-}
-
-.mode-tab.active-announce {
-  background: linear-gradient(135deg, #d97706, #ea580c);
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
 }
 
 /* Store Card Transitions */

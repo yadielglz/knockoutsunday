@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🥊 KNOCKOUT SUNDAY! 🔥 | District Battle Arena</title>
+  <title>🥊 KNOCKOUT BLITZ 🔥 | District Battle Arena</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,53 +47,50 @@
     <div class="arena-grid-bg absolute inset-0 opacity-20"></div>
   </div>
 
-  <!-- Knockout / Revive / Line Added Fullscreen Overlay Banner -->
+  <!-- Fullscreen Combat / Event Overlay Banner -->
   <div id="fx-overlay" class="fixed inset-0 pointer-events-none z-50 flex items-center justify-center opacity-0 transition-opacity duration-300">
     <div id="fx-banner" class="transform scale-75 transition-transform duration-300 text-center px-10 py-8 rounded-3xl border-2 shadow-2xl backdrop-blur-xl">
       <div id="fx-emoji" class="text-7xl mb-2 animate-bounce">🥊</div>
-      <div id="fx-title" class="font-display text-6xl md:text-7xl tracking-wider uppercase drop-shadow-lg">KNOCKOUT!</div>
-      <div id="fx-subtitle" class="text-xl md:text-2xl font-bold mt-2 text-zinc-200">Store eliminated Store!</div>
+      <div id="fx-title" class="font-display text-6xl md:text-7xl tracking-wider uppercase drop-shadow-lg">KNOCKOUT BLITZ!</div>
+      <div id="fx-subtitle" class="text-xl md:text-2xl font-bold mt-2 text-zinc-200"></div>
     </div>
   </div>
 
-  <!-- 5-MINUTE BATTLE MODE LIVE COUNTDOWN BANNER (Shows across top when Admin opens Knockouts!) -->
+  <!-- Live Battle Round Top Banner (Shows when a 5-Minute Battle Round :10, :30, :50 is OPEN) -->
   <div id="battle-window-banner" class="hidden relative z-30 bg-gradient-to-r from-red-700 via-magenta to-orange-600 text-white px-4 py-3 shadow-2xl border-b-2 border-amber-300">
-    <div class="max-w-[1600px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+    <div class="max-w-[1640px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
       <div class="flex items-center gap-3">
         <span class="text-3xl animate-bounce">🚨🥊</span>
         <div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <span class="px-2 py-0.5 rounded bg-black/40 text-amber-300 font-mono text-[10px] font-extrabold uppercase tracking-widest animate-pulse">
-              LIVE BATTLE WINDOW OPEN!
+              5-MIN BATTLE ROUND LIVE
             </span>
-            <span class="font-display text-2xl sm:text-3xl tracking-wider uppercase leading-none">
-              STORES CAN SUBMIT KNOCKOUTS & REVIVES NOW!
+            <span id="active-round-banner-title" class="font-display text-2xl sm:text-3xl tracking-wider uppercase leading-none">
+              BATTLE ROUND OPEN — MAX 2 ATTACKS PER STORE!
             </span>
           </div>
           <p class="text-xs text-pink-100 mt-0.5">
-            Select your store in the Battle Arena on the right or click any target store card before the timer hits zero!
+            Normal Attack: <strong>200 pts → 400 dmg</strong> • Deflected: <strong>200 pts → 100 dmg</strong> • Deflection Breaker (2nd hit on same target): <strong>400 pts → 500 dmg</strong>
           </p>
         </div>
       </div>
 
       <div class="flex items-center gap-3">
         <div class="bg-black/50 border border-amber-300/60 px-4 py-1.5 rounded-2xl text-center">
-          <div class="text-[9px] uppercase tracking-widest text-amber-300 font-bold">Time Remaining</div>
+          <div class="text-[9px] uppercase tracking-widest text-amber-300 font-bold">Round Ends In</div>
           <div id="battle-countdown-timer" class="font-mono text-2xl sm:text-3xl font-extrabold text-white tracking-wider">05:00</div>
         </div>
-        <button id="btn-close-battle-window-top" class="admin-only hidden px-3 py-2 rounded-xl bg-black/40 hover:bg-black/70 border border-white/20 text-xs font-extrabold uppercase tracking-wider transition">
-          ⏹️ End Window
-        </button>
       </div>
     </div>
   </div>
 
   <!-- Live Broadcast Announcement Ticker -->
   <div id="announcement-banner" class="hidden relative z-20 bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white px-4 py-2 shadow-lg border-b border-white/20">
-    <div class="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
+    <div class="max-w-[1640px] mx-auto flex items-center justify-between gap-4">
       <div class="flex items-center gap-2.5 text-xs sm:text-sm font-extrabold tracking-wide">
         <span class="px-2 py-0.5 rounded bg-black/30 uppercase text-[10px] tracking-widest">📢 BROADCAST</span>
-        <span id="announcement-text">Welcome to Knockout Sunday!</span>
+        <span id="announcement-text"></span>
       </div>
       <button id="btn-clear-announcement" class="admin-only hidden text-xs bg-black/30 hover:bg-black/50 px-2.5 py-1 rounded-lg font-bold transition">
         Dismiss ✕
@@ -102,10 +99,10 @@
   </div>
 
   <!-- Main Content Wrapper -->
-  <div class="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-5">
+  <div class="relative z-10 max-w-[1640px] mx-auto px-4 sm:px-6 lg:px-8 py-5">
 
     <!-- Top Header & Sync Bar -->
-    <header class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-5 mb-6 border-b border-arena-border">
+    <header class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-5 mb-5 border-b border-arena-border">
       <div class="flex items-center gap-4">
         <div class="relative flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-magenta via-red-600 to-orange-500 shadow-lg shadow-magenta/30 border border-white/20">
           <span class="text-4xl">🥊</span>
@@ -117,56 +114,59 @@
         <div>
           <div class="flex items-center gap-2.5 flex-wrap">
             <h1 class="font-display text-4xl sm:text-5xl tracking-wider bg-gradient-to-r from-white via-pink-100 to-magenta-light bg-clip-text text-transparent leading-none">
-              KNOCKOUT SUNDAY! 🔥
+              KNOCKOUT BLITZ 🔥
             </h1>
             <span id="district-badge" class="px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-widest bg-magenta/20 text-magenta-light border border-magenta/40 rounded-full">
               PHOENIX DISTRICT
             </span>
-            <span id="mode-badge" class="px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-widest bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-full">
-              👀 LIVE VIEWER
+            <span id="phase-badge" class="px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-widest bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 rounded-full">
+              REGULAR HOURS
+            </span>
+            <span id="et-clock-badge" class="px-2.5 py-0.5 text-[11px] font-mono font-bold bg-arena-card text-zinc-300 border border-arena-border rounded-full">
+              ET --:--:--
             </span>
           </div>
-          <p class="text-sm text-zinc-400 mt-1">
-            Every point gives your store the power to <span class="text-red-400 font-semibold">ELIMINATE</span> another store or <span class="text-emerald-400 font-semibold">REVIVE</span>! Only ONE store can be the last one standing! 🏆
+          <p id="schedule-summary-line" class="text-xs sm:text-sm text-zinc-400 mt-1">
+            America/New_York • Mon–Sat 11:00 AM–8:45 PM (Power Hours 5:45–8:45 PM) • Sun 1:00–5:45 PM (Power Phase 4:45–5:45 PM) • Weekly Rollover Sun 7:00 PM ET
           </p>
         </div>
       </div>
 
       <!-- Controls & Identity Bar -->
-      <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-end">
-        <!-- Store Identity Pill ("Which Store Are You?") -->
-        <button id="btn-change-my-store" class="flex items-center gap-2 bg-arena-card hover:bg-arena-elevated border border-magenta/40 px-3.5 py-2 rounded-xl text-xs transition" title="Switch which store you represent">
+      <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
+        <!-- Store Selector Button -->
+        <button id="btn-change-my-store" class="flex items-center gap-2 bg-arena-card hover:bg-arena-elevated border border-magenta/40 px-3 py-2 rounded-xl text-xs transition" title="Select your store for combat actions">
           <span class="text-base" id="my-store-pill-emoji">🏪</span>
           <div class="text-left">
-            <div class="text-[9px] uppercase tracking-wider text-zinc-400 font-bold">Your Store</div>
+            <div class="text-[9px] uppercase tracking-wider text-zinc-400 font-bold" id="my-store-auth-label">Your Store</div>
             <div id="my-store-pill-name" class="font-extrabold text-white">Select Store...</div>
           </div>
         </button>
 
-        <!-- Sync Pill -->
+        <!-- Sheet & Server Sync Pill -->
         <div class="flex items-center gap-2 bg-arena-card border border-arena-border px-3 py-2 rounded-xl text-xs">
           <span id="sync-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
           <div class="flex flex-col">
-            <span id="sync-status-text" class="font-semibold text-zinc-200">Live Server Sync</span>
-            <span id="sync-time-text" class="text-[10px] text-zinc-400">Synced: Just now</span>
+            <span id="sync-status-text" class="font-semibold text-zinc-200">Authoritative DB</span>
+            <span id="sync-time-text" class="text-[10px] text-zinc-400">Sheet: Checking...</span>
           </div>
-          <button id="btn-sync-now" title="Sync with Server & Google Sheet now" class="ml-1.5 p-1.5 rounded-lg bg-arena-elevated hover:bg-magenta/20 hover:text-magenta-light text-zinc-300 transition border border-white/5">
+          <button id="btn-sync-now" title="Refresh state from server" class="ml-1 p-1.5 rounded-lg bg-arena-elevated hover:bg-magenta/20 hover:text-magenta-light text-zinc-300 transition border border-white/5">
             <svg id="sync-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
             </svg>
           </button>
         </div>
 
-        <!-- Rules & Scoring Modal Button -->
-        <button id="btn-open-rules" class="flex items-center gap-1.5 bg-arena-card hover:bg-arena-elevated border border-arena-border px-3.5 py-2.5 rounded-xl text-xs font-semibold text-zinc-200 transition">
-          <span>🏆</span>
-          <span>Point System</span>
+        <!-- Export PNG Status Report Button -->
+        <button id="btn-export-png" class="flex items-center gap-1.5 bg-arena-card hover:bg-arena-elevated border border-arena-border px-3 py-2.5 rounded-xl text-xs font-semibold text-amber-300 transition" title="Download shareable PNG Status Report">
+          <span>📸</span>
+          <span>PNG Report</span>
         </button>
 
-        <!-- Admin Settings Button -->
-        <button id="btn-open-settings" class="admin-only hidden flex items-center gap-1.5 bg-arena-card hover:bg-arena-elevated border border-arena-border px-3.5 py-2.5 rounded-xl text-xs font-semibold text-zinc-200 transition">
-          <span>⚙️</span>
-          <span>Settings</span>
+        <!-- Rules & Scoring Modal Button -->
+        <button id="btn-open-rules" class="flex items-center gap-1.5 bg-arena-card hover:bg-arena-elevated border border-arena-border px-3 py-2.5 rounded-xl text-xs font-semibold text-zinc-200 transition">
+          <span>🏆</span>
+          <span>Rules</span>
         </button>
 
         <!-- Admin Unlock / Lock Button -->
@@ -182,541 +182,583 @@
       </div>
     </header>
 
-    <!-- District Summary & Last Standing Banner -->
-    <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-      <div class="bg-arena-card border border-arena-border rounded-2xl p-3.5 flex items-center justify-between">
-        <div>
-          <p class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Stores Standing</p>
-          <div class="flex items-baseline gap-1.5 mt-0.5">
-            <span id="stat-standing" class="font-display text-3xl text-emerald-400">9</span>
-            <span id="stat-total-stores" class="text-xs text-zinc-500 font-semibold">/ 9 Alive</span>
-          </div>
+    <!-- Live Schedule & Countdown Telemetry Bar -->
+    <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+      <div class="bg-arena-card border border-arena-border rounded-2xl p-3 flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Next Battle Round</span>
+          <span class="text-sm">🥊</span>
         </div>
-        <span class="text-2xl bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-xl">🛡️</span>
+        <div id="telemetry-next-round" class="font-mono text-xl font-extrabold text-white mt-1">--:--</div>
+        <div id="telemetry-next-round-sub" class="text-[10px] text-zinc-400">:10, :30, :50 (5m each)</div>
       </div>
 
-      <div class="bg-arena-card border border-arena-border rounded-2xl p-3.5 flex items-center justify-between">
-        <div>
-          <p class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Knocked Out</p>
-          <div class="flex items-baseline gap-1.5 mt-0.5">
-            <span id="stat-ko" class="font-display text-3xl text-red-400">0</span>
-            <span id="stat-total-kos-alltime" class="text-xs text-zinc-500 font-semibold">0 total KOs</span>
-          </div>
+      <div class="bg-arena-card border border-arena-border rounded-2xl p-3 flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">3-Min Sales Cutoff</span>
+          <span class="text-sm">⏱️</span>
         </div>
-        <span class="text-2xl bg-red-500/10 border border-red-500/20 p-2 rounded-xl">💀</span>
+        <div id="telemetry-next-cutoff" class="font-mono text-xl font-extrabold text-amber-300 mt-1">--:--</div>
+        <div id="telemetry-next-cutoff-sub" class="text-[10px] text-zinc-400">Cutoffs at :07, :27, :47</div>
       </div>
 
-      <div class="bg-arena-card border border-arena-border rounded-2xl p-3.5 flex items-center justify-between">
-        <div>
-          <p class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">District Points</p>
-          <div class="flex items-baseline gap-1.5 mt-0.5">
-            <span id="stat-total-points" class="font-display text-3xl text-amber-400">0</span>
-            <span id="stat-available-points" class="text-xs text-amber-300/80 font-semibold">0 avail</span>
-          </div>
+      <div class="bg-arena-card border border-arena-border rounded-2xl p-3 flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Deflection (120m)</span>
+          <span class="text-sm">🛡️</span>
         </div>
-        <span class="text-2xl bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl">⚡</span>
+        <div id="telemetry-deflection" class="font-mono text-xl font-extrabold text-cyan-300 mt-1">--:--</div>
+        <div id="telemetry-deflection-sub" class="text-[10px] text-zinc-400">2 survivals in first 120m + 1,350 pts</div>
       </div>
 
-      <div class="bg-arena-card border border-arena-border rounded-2xl p-3.5 flex items-center justify-between">
-        <div>
-          <p class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">VL + Beyond VL</p>
-          <div class="flex items-baseline gap-1.5 mt-0.5">
-            <span id="stat-vl" class="font-display text-3xl text-white">0</span>
-            <span id="stat-bvl" class="text-xs text-magenta-light font-semibold">+0 Beyond</span>
-          </div>
+      <div class="bg-arena-card border border-arena-border rounded-2xl p-3 flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Power Phase (350 Min)</span>
+          <span class="text-sm">⚡</span>
         </div>
-        <span class="text-2xl bg-magenta/10 border border-magenta/20 p-2 rounded-xl">📱</span>
+        <div id="telemetry-power-phase" class="font-mono text-xl font-extrabold text-magenta-light mt-1">--:--</div>
+        <div id="telemetry-power-phase-sub" class="text-[10px] text-zinc-400">Mon–Sat 3h (5:45p) • Sun 1h (4:45p)</div>
       </div>
 
-      <div class="bg-arena-card border border-arena-border rounded-2xl p-3.5 flex items-center justify-between">
-        <div>
-          <p class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">BTS & HINT (HSI)</p>
-          <div class="flex items-baseline gap-1.5 mt-0.5">
-            <span id="stat-bts" class="font-display text-3xl text-cyan-400">0</span>
-            <span id="stat-hsi" class="text-xs text-purple-400 font-semibold">0 HINTs</span>
-          </div>
+      <div class="bg-arena-card border border-arena-border rounded-2xl p-3 flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Auto-Elim Checkpoint</span>
+          <span class="text-sm">💀</span>
         </div>
-        <span class="text-2xl bg-cyan-500/10 border border-cyan-500/20 p-2 rounded-xl">⌚</span>
+        <div id="telemetry-next-checkpoint" class="font-mono text-xl font-extrabold text-red-400 mt-1">--:--</div>
+        <div id="telemetry-next-checkpoint-sub" class="text-[10px] text-zinc-400">Every 30m in Final Stretch</div>
       </div>
 
-      <div class="bg-arena-card border border-arena-border rounded-2xl p-3.5 flex items-center justify-between">
-        <div>
-          <p class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">District Acc $</p>
-          <div class="flex items-baseline gap-1.5 mt-0.5">
-            <span id="stat-acc" class="font-display text-3xl text-pink-400">$0</span>
-            <span id="stat-net-rev" class="text-xs text-zinc-400 font-semibold">$0 NR</span>
-          </div>
+      <div class="bg-arena-card border border-arena-border rounded-2xl p-3 flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Standing / Qualifiers</span>
+          <span class="text-sm">🏆</span>
         </div>
-        <span class="text-2xl bg-pink-500/10 border border-pink-500/20 p-2 rounded-xl">🎧</span>
+        <div class="flex items-baseline gap-1.5 mt-1">
+          <span id="stat-standing" class="font-display text-3xl text-emerald-400 leading-none">9</span>
+          <span id="stat-total-stores" class="text-xs text-zinc-400 font-semibold">/ 9 Standing</span>
+        </div>
+        <div id="telemetry-event-window-sub" class="text-[10px] text-zinc-400">Daily Qualifiers at Closing</div>
       </div>
     </section>
 
-    <!-- Winner / Sole Survivor Callout Banner -->
-    <div id="survivor-banner" class="hidden mb-6 p-5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-magenta/25 to-red-600/20 border-2 border-amber-400/60 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+    <!-- Draw / Daily Qualifiers / Pending Tie Callout Banners -->
+    <div id="draw-banner" class="hidden mb-5 p-5 rounded-2xl bg-gradient-to-r from-red-950/90 via-zinc-900 to-red-950/90 border-2 border-red-500 shadow-xl">
       <div class="flex items-center gap-4">
-        <span class="text-5xl animate-bounce">🏆</span>
+        <span class="text-5xl">⚠️</span>
         <div>
-          <div class="text-xs font-extrabold uppercase tracking-widest text-amber-300">LAST STORE STANDING — DISTRICT CHAMPION!</div>
-          <h2 id="survivor-name" class="font-display text-4xl sm:text-5xl text-white tracking-wide mt-0.5">5733 - Undefeated</h2>
+          <div class="text-xs font-extrabold uppercase tracking-widest text-red-300">DAILY EVENT ENDED IN A DRAW — POWER PHASE 350-POINT CHECK</div>
+          <h2 id="draw-banner-title" class="font-display text-3xl sm:text-4xl text-white tracking-wide mt-0.5">No Store Met the 350 Available-Point Entry Minimum</h2>
+          <p id="draw-banner-reason" class="text-xs text-zinc-300 mt-1">No daily qualifiers recorded for today. All earned points and sales figures are preserved for carryover to the next daily event within the week.</p>
         </div>
       </div>
-      <div class="text-xs text-amber-200/90 font-medium bg-black/40 px-4 py-2 rounded-xl border border-amber-400/30">
-        Knocked-out stores can still spend points to <strong class="text-emerald-400">REVIVE</strong> and challenge the throne! 👀🔥
+    </div>
+
+    <div id="qualifiers-banner" class="hidden mb-5 p-5 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-arena-elevated to-amber-950/60 border-2 border-emerald-400/70 shadow-xl">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <span class="text-5xl">🏅</span>
+          <div>
+            <div class="text-xs font-extrabold uppercase tracking-widest text-emerald-300">DAILY EVENT CLOSED — OFFICIAL DAILY QUALIFIERS</div>
+            <h2 id="qualifiers-banner-list" class="font-display text-3xl sm:text-4xl text-white tracking-wide mt-0.5"></h2>
+            <p class="text-xs text-zinc-300 mt-0.5">All stores participate in the next enabled daily event with their cumulative weekly carried earned-point balance restored!</p>
+          </div>
+        </div>
       </div>
+    </div>
+
+    <div id="tie-alert-banner" class="hidden mb-5 p-4 rounded-2xl bg-amber-500/15 border-2 border-amber-400 text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div>
+        <div class="text-xs font-extrabold uppercase tracking-widest text-amber-300">⏸️ AUTOMATIC ELIMINATION CHECKPOINT PAUSED — EXACT TIE</div>
+        <p id="tie-alert-text" class="text-xs mt-1"></p>
+      </div>
+      <span class="text-xs font-bold px-3 py-1.5 rounded-xl bg-black/40 border border-amber-400/40">Awaiting Admin Resolution</span>
     </div>
 
     <!-- Main 2-Column Layout -->
     <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
 
-      <!-- Left 8 Cols: Store Arena Grid & Breakdown Table -->
-      <div class="xl:col-span-8 space-y-4">
-        <!-- Filter & Sort Bar -->
+      <!-- Left 8 Cols: View Switcher (Daily Arena Cards | Full Point Ledger | Weekly Standings & Averages) -->
+      <div class="xl:col-span-8 space-y-5">
+
+        <!-- Navigation & Filter Bar -->
         <div class="flex flex-wrap items-center justify-between gap-3 bg-arena-card border border-arena-border px-4 py-3 rounded-2xl">
-          <div class="flex items-center gap-1.5">
-            <button data-filter="all" class="filter-tab active px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition">
-              All Stores (<span id="count-all">9</span>)
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button data-view="arena" class="view-tab active px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition">
+              🥊 Daily Arena (<span id="count-all">9</span>)
             </button>
-            <button data-filter="alive" class="filter-tab px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition">
-              🟢 Standing (<span id="count-alive">9</span>)
+            <button data-view="weekly" class="view-tab px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition">
+              🏆 Weekly Standings & Averages
             </button>
-            <button data-filter="eliminated" class="filter-tab px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition">
-              💀 Knocked Out (<span id="count-ko">0</span>)
+            <button data-view="ledger" class="view-tab px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition">
+              📋 Full Point Ledger & Schedule
             </button>
           </div>
 
-          <div class="flex items-center gap-2 text-xs">
-            <span class="text-zinc-400 font-medium">Sort by:</span>
-            <select id="sort-select" class="bg-arena-elevated border border-arena-border rounded-xl px-2.5 py-1.5 text-xs font-semibold text-white focus:outline-none focus:border-magenta">
+          <div id="arena-filters-box" class="flex items-center gap-2 text-xs">
+            <select id="filter-select" class="bg-arena-elevated border border-arena-border rounded-xl px-2.5 py-1.5 text-xs font-semibold text-white">
+              <option value="all">All 9 Stores</option>
+              <option value="standing">🟢 Standing Only</option>
+              <option value="eliminated">💀 Knocked Out Only</option>
+            </select>
+            <select id="sort-select" class="bg-arena-elevated border border-arena-border rounded-xl px-2.5 py-1.5 text-xs font-semibold text-white">
               <option value="available_desc">Available Points (High → Low)</option>
               <option value="earned_desc">Total Earned Points (High → Low)</option>
-              <option value="alive_first">Standing First, then Points</option>
-              <option value="kos_desc">Most Knockouts Dealt</option>
-              <option value="sheet_order">Sheet Order</option>
+              <option value="standing_first">Standing First, then Available</option>
+              <option value="roster_order">Roster Order</option>
             </select>
           </div>
         </div>
 
-        <!-- Store Cards Grid -->
-        <div id="stores-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Populated dynamically via app.js -->
+        <!-- VIEW 1: DAILY ARENA STORE CARDS -->
+        <div id="view-section-arena" class="space-y-4">
+          <div id="stores-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Populated by app.js -->
+          </div>
         </div>
 
-        <!-- Point Breakdown Table -->
-        <div class="bg-arena-card border border-arena-border rounded-2xl overflow-hidden mt-6">
-          <div class="px-5 py-3.5 border-b border-arena-border flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-              <span class="text-lg">📋</span>
-              <h3 class="font-display text-2xl tracking-wide text-white">DISTRICT SCOREBOARD & LINE TOTALS</h3>
+        <!-- VIEW 2: WEEKLY STANDINGS, AVERAGES & DAILY QUALIFIER HISTORY -->
+        <div id="view-section-weekly" class="hidden space-y-5">
+          <div class="bg-arena-card border border-arena-border rounded-2xl overflow-hidden">
+            <div class="px-5 py-4 border-b border-arena-border flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 class="font-display text-3xl tracking-wide text-white">🏆 WEEKLY COMPETITION RANKINGS</h3>
+                <p id="weekly-period-label" class="text-xs text-zinc-400">
+                  Sunday 7:00 PM ET – Following Sunday 7:00 PM ET • Ranked by: 1) Cumulative Earned Points, 2) Average Daily Earned Points, 3) Admin Sales Decision
+                </p>
+              </div>
+              <div class="text-right">
+                <span id="weekly-counted-days-badge" class="px-3 py-1 rounded-full text-xs font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  0 Counted Days Held
+                </span>
+              </div>
             </div>
-            <span class="text-xs text-zinc-400">
-              Combines Google Sheet numbers + manually logged Admin lines
-            </span>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-arena-border bg-arena-elevated/60 text-zinc-400 uppercase tracking-wider text-[10px] font-bold">
+                    <th class="py-3 px-4">Rank</th>
+                    <th class="py-3 px-4">Store</th>
+                    <th class="py-3 px-3 text-right text-amber-300">Weekly Earned Pts</th>
+                    <th class="py-3 px-3 text-right text-cyan-300">Avg Daily Earned Pts</th>
+                    <th class="py-3 px-3 text-right">Sales Earned Pts</th>
+                    <th class="py-3 px-3 text-right">Admin Bonus/Corr</th>
+                    <th class="py-3 px-3 text-center">Counted Days</th>
+                    <th class="py-3 px-3 text-center text-emerald-400">Daily Qualifiers</th>
+                  </tr>
+                </thead>
+                <tbody id="weekly-standings-tbody" class="divide-y divide-arena-border/60">
+                  <!-- Populated by app.js -->
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr class="border-b border-arena-border bg-arena-elevated/60 text-zinc-400 uppercase tracking-wider text-[10px] font-bold">
-                  <th class="py-3 px-4">Store</th>
-                  <th class="py-3 px-2 text-center">Status</th>
-                  <th class="py-3 px-2 text-center" title="Voice Line Activations (1 pt each)">VL <span class="text-zinc-500">(1pt)</span></th>
-                  <th class="py-3 px-2 text-center bg-magenta/10 text-magenta-light" title="Beyond VL Activations (2 pts each)">Beyond VL <span class="text-pink-300">(2pt)</span></th>
-                  <th class="py-3 px-2 text-center" title="Watches & Tablets / BTS (1 pt each)">BTS <span class="text-zinc-500">(1pt)</span></th>
-                  <th class="py-3 px-2 text-center" title="HINT / HSI Activations (2 pts each)">HINT <span class="text-zinc-500">(2pt)</span></th>
-                  <th class="py-3 px-2 text-right" title="$100 = 1 pt, $200 = 2 pts">Acc $ <span class="text-zinc-500">(1pt/$100)</span></th>
-                  <th class="py-3 px-2 text-center" title="Manual Bonus/Adjustment Points">Bonus</th>
-                  <th class="py-3 px-2 text-center text-amber-300">Earned</th>
-                  <th class="py-3 px-2 text-center text-zinc-400">Spent</th>
-                  <th class="py-3 px-3 text-center text-emerald-400 font-extrabold">Avail Pts</th>
-                </tr>
-              </thead>
-              <tbody id="sheet-table-body" class="divide-y divide-arena-border/60">
-                <!-- Populated by app.js -->
-              </tbody>
-            </table>
+
+          <!-- Enabled Days & Daily Qualifier Matrix -->
+          <div class="bg-arena-card border border-arena-border rounded-2xl p-5">
+            <h4 class="font-display text-2xl tracking-wide text-white mb-2">📅 WEEKLY EVENT DAYS & DAILY QUALIFIERS</h4>
+            <p class="text-xs text-zinc-400 mb-3">
+              Every store participates in every enabled daily event (including stores knocked out on previous days). Surviving stores at closing are recorded as Daily Qualifiers.
+            </p>
+            <div id="weekly-days-grid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2.5">
+              <!-- Populated by app.js -->
+            </div>
           </div>
         </div>
+
+        <!-- VIEW 3: FULL POINT LEDGER & DAILY SCHEDULE TABLE -->
+        <div id="view-section-ledger" class="hidden space-y-5">
+          <div class="bg-arena-card border border-arena-border rounded-2xl overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-arena-border flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 class="font-display text-2xl tracking-wide text-white">📋 AUTHORITATIVE POINT LEDGER (TODAY)</h3>
+                <p class="text-xs text-zinc-400">
+                  Fixed-precision accounting: VL 200 • BTS 200 • HINT 600 • Acc 2 pts/$1 • Sales Milestone Bonus: +300 pts per 300 base sales pts
+                </p>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-[11px]">
+                <thead>
+                  <tr class="border-b border-arena-border bg-arena-elevated/60 text-zinc-400 uppercase tracking-wider text-[10px] font-bold">
+                    <th class="py-2.5 px-3">Store</th>
+                    <th class="py-2.5 px-2 text-center">Status</th>
+                    <th class="py-2.5 px-2 text-right">Carried Open</th>
+                    <th class="py-2.5 px-2 text-right text-emerald-300">Sales Earned</th>
+                    <th class="py-2.5 px-2 text-right">Admin Bonus</th>
+                    <th class="py-2.5 px-2 text-right text-amber-300">Total Earned</th>
+                    <th class="py-2.5 px-2 text-right text-purple-300">Pending</th>
+                    <th class="py-2.5 px-2 text-right text-red-300">Atk Spent</th>
+                    <th class="py-2.5 px-2 text-right text-teal-300">Rev Spent</th>
+                    <th class="py-2.5 px-2 text-right text-cyan-300">Shd Spent</th>
+                    <th class="py-2.5 px-2 text-right text-orange-400">Damage Taken</th>
+                    <th class="py-2.5 px-3 text-right text-white font-extrabold">Available Pts</th>
+                  </tr>
+                </thead>
+                <tbody id="ledger-table-body" class="divide-y divide-arena-border/60">
+                  <!-- Populated by app.js -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Daily Rounds & Checkpoints Schedule Card -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-arena-card border border-arena-border rounded-2xl p-4">
+              <h4 class="font-display text-2xl tracking-wide text-white mb-2">⏱️ BATTLE ROUNDS (:10, :30, :50) & CUTOFFS (:07, :27, :47)</h4>
+              <div id="schedule-rounds-list" class="max-h-64 overflow-y-auto space-y-1.5 text-xs">
+                <!-- Populated by app.js -->
+              </div>
+            </div>
+            <div class="bg-arena-card border border-arena-border rounded-2xl p-4">
+              <h4 class="font-display text-2xl tracking-wide text-white mb-2">💀 AUTOMATIC ELIMINATION CHECKPOINTS</h4>
+              <div id="schedule-checkpoints-list" class="max-h-64 overflow-y-auto space-y-1.5 text-xs">
+                <!-- Populated by app.js -->
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <!-- Right 4 Cols: Store Battle Panel + Admin Command Center + Live Feed -->
+      <!-- Right 4 Cols: Store Combat Command + Admin Command Center + Activity Feed -->
       <div class="xl:col-span-4 space-y-5 sticky top-5">
 
-        <!-- PUBLIC STORE BATTLE MODE PANEL (Visible to all stores!) -->
+        <!-- STORE COMBAT & DEFENSE PANEL -->
         <div id="store-battle-panel" class="bg-gradient-to-b from-arena-elevated to-arena-card border-2 border-arena-border rounded-2xl p-5 shadow-xl transition-all">
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2">
               <span class="text-2xl">🥊</span>
-              <h2 class="font-display text-3xl tracking-wider text-white">STORE BATTLE ARENA</h2>
+              <h2 class="font-display text-3xl tracking-wider text-white">STORE COMBAT DECK</h2>
             </div>
             <span id="store-battle-status-pill" class="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
-              🔒 WINDOW CLOSED
+              ROUND CLOSED
             </span>
           </div>
 
-          <!-- Selected Store Header Bar -->
-          <div class="p-3 rounded-xl bg-arena-bg border border-arena-border mb-3.5 flex items-center justify-between gap-2">
-            <div>
-              <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Fighting As Store:</div>
-              <div id="battle-my-store-display" class="font-display text-2xl text-white tracking-wide">Select Your Store</div>
-              <div id="battle-my-store-pts" class="text-xs font-mono text-amber-400 font-bold">0 Available Points</div>
+          <!-- Direct Store Selector (No Login Required) -->
+          <div class="p-3 rounded-xl bg-arena-bg border border-arena-border mb-3.5 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <label for="select-combat-my-store" class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">🏪 Playing As Store:</label>
+              <span id="battle-my-store-pts" class="text-xs font-mono text-amber-400 font-bold">Select your store</span>
             </div>
-            <button id="btn-switch-store-inline" type="button" class="px-3 py-1.5 rounded-lg bg-arena-elevated hover:bg-magenta/20 border border-white/10 text-xs font-bold text-zinc-200 transition">
-              Change Store
+            <select id="select-combat-my-store" class="w-full bg-arena-elevated border border-arena-border rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none focus:border-magenta">
+              <!-- Populated by JS -->
+            </select>
+            <div id="battle-my-store-display" class="hidden"></div>
+          </div>
+
+          <!-- Attack Controls (Active during 5-Min Battle Rounds :10, :30, :50) -->
+          <div id="store-attack-section" class="space-y-3 mb-4">
+            <div class="flex items-center justify-between text-xs bg-arena-bg/80 px-3 py-2 rounded-xl border border-arena-border">
+              <span class="text-zinc-400 font-semibold">Round Attack Allowance:</span>
+              <span id="store-allowance-badge" class="font-mono font-extrabold text-amber-300">0 / 2 Used</span>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-300 mb-1">
+                🎯 Target Standing Store
+              </label>
+              <select id="select-store-battle-target" class="w-full bg-arena-bg border border-arena-border rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-magenta">
+                <!-- Populated by JS -->
+              </select>
+            </div>
+
+            <!-- Attack Mode Selector (Normal / Simple vs Deflection Breaker when eligible!) -->
+            <div>
+              <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-300 mb-1">
+                ⚔️ Attack Mode
+              </label>
+              <select id="select-store-attack-mode" class="w-full bg-arena-bg border border-arena-border rounded-xl px-3 py-2 text-xs font-semibold text-white">
+                <option value="NORMAL">Normal / Simple Attack (200 pts → 400 dmg | 100 dmg if Deflected)</option>
+                <option value="BREAKER">💥 Deflection Breaker (400 pts → 500 dmg & Breaks Deflection!)</option>
+              </select>
+              <p id="breaker-helper-note" class="text-[10px] text-zinc-400 mt-1">
+                Breaker unlocks on your 2nd attack after landing a deflected hit on the same target in the same round.
+              </p>
+            </div>
+
+            <input id="input-store-battle-note" type="text" placeholder="Optional battle note..."
+                   class="w-full bg-arena-bg border border-arena-border rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500" />
+
+            <button id="btn-store-submit-attack" type="button" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-red-600 via-magenta to-orange-500 hover:from-red-500 hover:to-orange-400 text-white font-display text-2xl tracking-wider uppercase shadow-lg transition disabled:opacity-40 disabled:cursor-not-allowed">
+              🥊 LAUNCH ATTACK
             </button>
           </div>
 
-          <!-- Closed Window Standby State -->
-          <div id="store-battle-closed-box" class="p-4 rounded-xl bg-arena-bg/70 border border-arena-border text-center space-y-2">
-            <div class="text-3xl">⏳🛡️</div>
-            <div class="font-display text-2xl tracking-wide text-zinc-200">WAITING FOR 5-MINUTE BATTLE WINDOW</div>
-            <p class="text-xs text-zinc-400 leading-relaxed">
-              Keep stacking your <strong class="text-amber-300">VL, Beyond VL, BTS, HINT, and Accessories</strong> points! As soon as the Admin opens the <strong class="text-magenta-light">5-Minute Knockout Window</strong>, this panel unlocks so your store can eliminate rivals!
-            </p>
+          <!-- Defense & Self-Revival Actions -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-3 border-t border-arena-border">
+            <!-- Self-Revive Button -->
+            <button id="btn-store-submit-revive" type="button" class="py-2.5 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/35 border border-emerald-500/40 text-emerald-300 text-xs font-extrabold uppercase tracking-wider transition disabled:opacity-40 disabled:cursor-not-allowed">
+              ⚡ Self-Revive (<span id="label-revive-cost-btn">200</span> pts)
+            </button>
+
+            <!-- Power Phase Shield Purchase Button -->
+            <button id="btn-store-buy-shield" type="button" class="py-2.5 px-3 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/35 border border-cyan-400/40 text-cyan-300 text-xs font-extrabold uppercase tracking-wider transition disabled:opacity-40 disabled:cursor-not-allowed">
+              🛡️ Buy Shield (600 pts)
+            </button>
           </div>
-
-          <!-- Open Window Active Combat Controls (Unlocks when 5-Min Battle Window is active!) -->
-          <div id="store-battle-open-box" class="hidden space-y-3.5">
-            <div class="p-2.5 rounded-xl bg-red-500/15 border border-red-500/40 flex items-center justify-between">
-              <span class="text-xs font-extrabold text-red-200 uppercase tracking-wider">⏱️ Window Closes In:</span>
-              <span id="store-panel-countdown" class="font-mono text-lg font-extrabold text-amber-300">05:00</span>
-            </div>
-
-            <!-- If store is ALIVE: Show Target selector & Knockout button -->
-            <div id="store-alive-attack-box" class="space-y-3">
-              <div>
-                <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-300 mb-1.5">
-                  🎯 Choose Rival Store to Eliminate (<span class="ko-cost-inline">1</span> pt)
-                </label>
-                <select id="select-store-battle-target" class="w-full bg-arena-bg border border-red-500/50 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white focus:outline-none focus:border-red-400">
-                  <!-- Populated by JS -->
-                </select>
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
-                  Battle Cry / Trash Talk (Optional)
-                </label>
-                <input id="input-store-battle-note" type="text" placeholder="e.g. Sent packing by our team! 🥊🔥"
-                       class="w-full bg-arena-bg border border-arena-border rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500" />
-              </div>
-
-              <button id="btn-store-submit-ko" type="button" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-red-600 via-magenta to-orange-500 hover:from-red-500 hover:to-orange-400 text-white font-display text-2xl tracking-wider uppercase shadow-lg shadow-red-600/30 transition transform active:scale-95 flex items-center justify-center gap-2">
-                <span>🥊 SUBMIT KNOCKOUT NOW!</span>
-              </button>
-            </div>
-
-            <!-- If store is KNOCKED OUT: Show Self-Revive button -->
-            <div id="store-ko-revive-box" class="hidden space-y-3 p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/40">
-              <div class="text-xs text-emerald-200 font-semibold">
-                💀 Your store is currently <strong class="text-red-400">KNOCKED OUT</strong>! Spend <strong class="text-white"><span class="revive-cost-inline">1</span> point</strong> to revive back into the ring and start attacking!
-              </div>
-              <input id="input-store-revive-note" type="text" placeholder="Comeback message (e.g. We're back!! 👀🔥)"
-                     class="w-full bg-arena-bg border border-emerald-500/40 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500" />
-              <button id="btn-store-submit-revive" type="button" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-display text-2xl tracking-wider uppercase shadow-lg transition">
-                ⚡ REVIVE OUR STORE NOW!
-              </button>
-            </div>
-          </div>
+          <p id="store-defense-status-note" class="text-[10px] text-zinc-400 mt-2 text-center">
+            Revivals: 200 pts outside round / 400 pts in round (Disabled in Power Phase). Shields: 600 pts between Power Phase rounds.
+          </p>
         </div>
 
-        <!-- ADMIN COMMAND CENTER (Visible ONLY when Admin is unlocked) -->
-        <div id="admin-command-panel" class="admin-only hidden bg-gradient-to-b from-arena-elevated to-arena-card border-2 border-magenta rounded-2xl p-5 shadow-2xl shadow-magenta/15">
+        <!-- ADMIN COMMAND CENTER (Visible when Admin is authenticated) -->
+        <div id="admin-command-panel" class="admin-only hidden bg-gradient-to-b from-arena-elevated to-arena-card border-2 border-magenta rounded-2xl p-5 shadow-2xl">
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2">
               <span class="text-2xl">⚡</span>
-              <h2 class="font-display text-3xl tracking-wider text-white">ADMIN COMMAND CENTER</h2>
+              <h2 class="font-display text-3xl tracking-wider text-white">ADMIN COMMAND</h2>
             </div>
             <span class="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-              🔓 SERVER ADMIN
+              🔓 AUTHORIZED
             </span>
           </div>
 
-          <!-- 5-MINUTE KNOCKOUT WINDOW LAUNCHER BOX -->
-          <div class="p-3.5 rounded-2xl bg-gradient-to-r from-red-950/80 via-magenta/20 to-amber-950/60 border border-magenta/50 mb-4">
-            <div class="flex items-center justify-between gap-2 mb-2">
-              <div>
-                <div class="text-[11px] font-extrabold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-                  <span>⏱️ 5-MINUTE BATTLE WINDOW</span>
+          <!-- Admin Sub-Tabs -->
+          <div class="grid grid-cols-3 gap-1 p-1 bg-arena-bg rounded-xl border border-arena-border mb-4 text-[10px] font-extrabold uppercase">
+            <button type="button" data-admintab="sales" class="admin-tab active-lines py-2 rounded-lg transition">➕ Log Sales</button>
+            <button type="button" data-admintab="lifecycle" class="admin-tab py-2 rounded-lg text-zinc-400 hover:text-white transition">⏱️ Event/Rounds</button>
+            <button type="button" data-admintab="audit" class="admin-tab py-2 rounded-lg text-zinc-400 hover:text-white transition">⚖️ Ties/Audit</button>
+          </div>
+
+          <!-- ADMIN TAB 1: LOG SALES & SHEET RECONCILIATION -->
+          <div id="admintab-sales" class="space-y-3.5">
+            <div class="flex items-center justify-between gap-2">
+              <label class="text-[11px] font-bold uppercase tracking-wider text-zinc-300">Select Store</label>
+              <button id="btn-admin-sync-sheet" type="button" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[10px] font-extrabold uppercase">
+                📊 Pull & Reconcile Sheet
+              </button>
+            </div>
+            <select id="select-line-store" class="w-full bg-arena-bg border border-arena-border rounded-xl px-3 py-2 text-xs font-semibold text-white">
+              <!-- Populated by JS -->
+            </select>
+
+            <!-- Quick 1-Click Sales Buttons (VL 200 / BTS 200 / HINT 600 / Acc 2pts per $1) -->
+            <div class="grid grid-cols-2 gap-1.5">
+              <button type="button" onclick="adminQuickSale('vl', 1)" class="p-2 rounded-xl bg-arena-bg hover:bg-magenta/20 border border-arena-border text-left">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-extrabold text-white">+1 Voice Line (VL)</span>
+                  <span class="text-[10px] font-mono text-amber-300 font-bold">+200 PTS</span>
                 </div>
-                <p id="admin-window-status-label" class="text-[11px] text-zinc-300">
-                  Open Knockouts for 5 minutes so stores can attack live!
-                </p>
-              </div>
-              <span id="admin-window-timer-badge" class="hidden font-mono text-base font-extrabold px-2.5 py-1 rounded-lg bg-black/50 text-amber-300 border border-amber-400/40">
-                05:00
-              </span>
-            </div>
-            <div class="flex gap-2">
-              <button id="btn-admin-start-window" type="button" class="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-red-600 via-magenta to-orange-500 hover:from-red-500 hover:to-orange-400 text-white font-extrabold text-xs uppercase tracking-wider shadow-lg transition">
-                🔥 Open 5-Min Knockout Window
               </button>
-              <button id="btn-admin-stop-window" type="button" class="hidden py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-red-600 text-white font-extrabold text-xs uppercase tracking-wider transition">
-                ⏹️ Close Window
+              <button type="button" onclick="adminQuickSale('hsi', 1)" class="p-2 rounded-xl bg-purple-500/15 hover:bg-purple-500/30 border border-purple-400/40 text-left">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-extrabold text-purple-200">+1 HINT (HSI)</span>
+                  <span class="text-[10px] font-mono text-amber-300 font-bold">+600 PTS</span>
+                </div>
+              </button>
+              <button type="button" onclick="adminQuickSale('watches', 1)" class="p-2 rounded-xl bg-arena-bg hover:bg-cyan-500/20 border border-arena-border text-left">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-extrabold text-cyan-300">+1 Watch (BTS)</span>
+                  <span class="text-[10px] font-mono text-amber-300 font-bold">+200 PTS</span>
+                </div>
+              </button>
+              <button type="button" onclick="adminQuickSale('tablets', 1)" class="p-2 rounded-xl bg-arena-bg hover:bg-cyan-500/20 border border-arena-border text-left">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-extrabold text-cyan-300">+1 Tablet (BTS)</span>
+                  <span class="text-[10px] font-mono text-amber-300 font-bold">+200 PTS</span>
+                </div>
+              </button>
+              <button type="button" onclick="adminQuickSale('acc', 50)" class="p-2 rounded-xl bg-arena-bg hover:bg-pink-500/20 border border-arena-border text-left">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-extrabold text-pink-300">+$50 Accessories</span>
+                  <span class="text-[10px] font-mono text-amber-300 font-bold">+100 PTS</span>
+                </div>
+              </button>
+              <button type="button" onclick="adminQuickSale('acc', 100)" class="p-2 rounded-xl bg-arena-bg hover:bg-pink-500/20 border border-arena-border text-left">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs font-extrabold text-pink-300">+$100 Accessories</span>
+                  <span class="text-[10px] font-mono text-amber-300 font-bold">+200 PTS</span>
+                </div>
               </button>
             </div>
-          </div>
 
-          <!-- 4-Tab Admin Mode Selector -->
-          <div class="grid grid-cols-4 gap-1.5 p-1 bg-arena-bg rounded-xl border border-arena-border mb-4">
-            <button id="tab-mode-lines" class="mode-tab active-lines py-2 px-2 rounded-lg text-[11px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 transition">
-              <span>➕</span>
-              <span>Add Lines</span>
-            </button>
-            <button id="tab-mode-ko" class="mode-tab py-2 px-2 rounded-lg text-[11px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 transition text-zinc-400 hover:text-white">
-              <span>🥊</span>
-              <span>KO (<span id="label-ko-cost">1</span>pt)</span>
-            </button>
-            <button id="tab-mode-revive" class="mode-tab py-2 px-2 rounded-lg text-[11px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 transition text-zinc-400 hover:text-white">
-              <span>⚡</span>
-              <span>Revive</span>
-            </button>
-            <button id="tab-mode-announce" class="mode-tab py-2 px-2 rounded-lg text-[11px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 transition text-zinc-400 hover:text-white">
-              <span>📢</span>
-              <span>Alert</span>
-            </button>
-          </div>
-
-          <!-- TAB 1: MANUALLY ADD SALES LINES / ACTIVATIONS -->
-          <div id="form-lines" class="space-y-3.5">
-            <div>
-              <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                1. Select Store
-              </label>
-              <select id="select-line-store" class="w-full bg-arena-bg border border-arena-border rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white focus:outline-none focus:border-magenta">
-                <!-- Populated by JS -->
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                2. Quick-Add Activation / Line (1-Click Server Save)
-              </label>
-              <div class="grid grid-cols-2 gap-2">
-                <button type="button" onclick="quickLogSale('vl', 1)" class="p-2.5 rounded-xl bg-arena-bg hover:bg-magenta/20 border border-arena-border hover:border-magenta text-left transition group">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-extrabold text-white group-hover:text-magenta-light">+1 VL Line</span>
-                    <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">+1 PT</span>
-                  </div>
-                  <div class="text-[10px] text-zinc-400 mt-0.5">Voice Line Activation</div>
-                </button>
-
-                <button type="button" onclick="quickLogSale('beyondVl', 1)" class="p-2.5 rounded-xl bg-magenta/10 hover:bg-magenta/25 border border-magenta/40 text-left transition group">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-extrabold text-magenta-light">+1 Beyond VL</span>
-                    <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-magenta/30 text-white">+2 PTS</span>
-                  </div>
-                  <div class="text-[10px] text-pink-200/70 mt-0.5">Beyond VL Activation</div>
-                </button>
-
-                <button type="button" onclick="quickLogSale('watches', 1)" class="p-2.5 rounded-xl bg-arena-bg hover:bg-cyan-500/15 border border-arena-border hover:border-cyan-400/50 text-left transition">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-extrabold text-cyan-300">+1 Watch</span>
-                    <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">+1 PT</span>
-                  </div>
-                  <div class="text-[10px] text-zinc-400 mt-0.5">BTS Watch Line</div>
-                </button>
-
-                <button type="button" onclick="quickLogSale('tablets', 1)" class="p-2.5 rounded-xl bg-arena-bg hover:bg-cyan-500/15 border border-arena-border hover:border-cyan-400/50 text-left transition">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-extrabold text-cyan-300">+1 Tablet</span>
-                    <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">+1 PT</span>
-                  </div>
-                  <div class="text-[10px] text-zinc-400 mt-0.5">BTS Tablet Line</div>
-                </button>
-
-                <button type="button" onclick="quickLogSale('hsi', 1)" class="p-2.5 rounded-xl bg-arena-bg hover:bg-purple-500/15 border border-arena-border hover:border-purple-400/50 text-left transition">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-extrabold text-purple-300">+1 HINT (HSI)</span>
-                    <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-200">+2 PTS</span>
-                  </div>
-                  <div class="text-[10px] text-zinc-400 mt-0.5">Home Internet Line</div>
-                </button>
-
-                <button type="button" onclick="quickLogSale('acc', 100)" class="p-2.5 rounded-xl bg-arena-bg hover:bg-pink-500/15 border border-arena-border hover:border-pink-400/50 text-left transition">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-extrabold text-pink-300">+$100 Acc</span>
-                    <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">+1 PT</span>
-                  </div>
-                  <div class="text-[10px] text-zinc-400 mt-0.5">$100 Accessories</div>
-                </button>
-              </div>
-            </div>
-
-            <!-- Custom Accessories $ or Multi-Line Entry -->
-            <div class="p-3 rounded-xl bg-arena-bg border border-arena-border space-y-2.5">
-              <div class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                Or Enter Custom Line / Dollar Amount
-              </div>
-              <div class="grid grid-cols-3 gap-2">
-                <select id="select-custom-line-type" class="col-span-2 bg-arena-elevated border border-arena-border rounded-lg px-2.5 py-2 text-xs font-semibold text-white">
-                  <option value="vl">VL Activations (1 pt each)</option>
-                  <option value="beyondVl">Beyond VL Activations (2 pts each)</option>
-                  <option value="watches">Watches - BTS (1 pt each)</option>
-                  <option value="tablets">Tablets - BTS (1 pt each)</option>
-                  <option value="hsi">HINT / HSI (2 pts each)</option>
-                  <option value="acc">Accessories $ ($100 = 1 pt, $200 = 2 pts)</option>
-                  <option value="bonusPts">Bonus Points (Direct pts)</option>
+            <!-- Custom Sale Entry (Exact Accessory Dollars/Cents or Quantity) -->
+            <div class="p-3 rounded-xl bg-arena-bg border border-arena-border space-y-2">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Custom Sales Entry (2 pts per $1 Acc — No $100 Threshold)</div>
+              <div class="grid grid-cols-3 gap-1.5">
+                <select id="select-custom-line-type" class="col-span-2 bg-arena-elevated border border-arena-border rounded-lg px-2 py-1.5 text-xs text-white">
+                  <option value="acc">Accessories $ ($25 = 50 pts, $100 = 200 pts)</option>
+                  <option value="vl">Voice Line / VL (200 pts)</option>
+                  <option value="watches">Watch / BTS (200 pts)</option>
+                  <option value="tablets">Tablet / BTS (200 pts)</option>
+                  <option value="hsi">HINT / HSI (600 pts)</option>
                 </select>
-                <input id="input-custom-line-qty" type="number" value="1"
-                       class="bg-arena-elevated border border-arena-border rounded-lg px-2.5 py-2 text-xs font-mono font-bold text-white text-center" />
+                <input id="input-custom-line-qty" type="number" step="0.01" value="25"
+                       class="bg-arena-elevated border border-arena-border rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-white text-center" />
               </div>
-              <input id="input-custom-line-note" type="text" placeholder="Optional rep name or note"
-                     class="w-full bg-arena-elevated border border-arena-border rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-zinc-500" />
-              <button id="btn-submit-custom-line" type="button" class="w-full py-2.5 px-3 rounded-lg bg-gradient-to-r from-magenta to-pink-600 hover:from-magenta-light hover:to-pink-500 text-white font-extrabold text-xs uppercase tracking-wider transition shadow">
-                ➕ Log Line to Store & Sync Server
+              <input id="input-custom-line-note" type="text" placeholder="Optional note / receipt ref"
+                     class="w-full bg-arena-elevated border border-arena-border rounded-lg px-2.5 py-1.5 text-xs text-white" />
+              <button id="btn-submit-custom-line" type="button" class="w-full py-2 rounded-lg bg-magenta hover:bg-magenta-light text-white font-extrabold text-xs uppercase tracking-wider transition">
+                ➕ Submit Sales Entry
               </button>
             </div>
+
+            <!-- Automatic +300 per 300 Sales Milestone Info Box -->
+            <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1">
+              <div class="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
+                🔥 Automatic Sales Milestone Bonus (+300 per 300 Sales Pts)
+              </div>
+              <p class="text-[10px] text-zinc-300">
+                For every <strong>300 points earned from sales</strong> (VL, BTS, HINT, Accessories), the store automatically earns an extra <strong>+300 bonus points</strong>!
+              </p>
+            </div>
           </div>
 
-          <!-- TAB 2: KNOCKOUT FORM -->
-          <div id="form-ko" class="space-y-3.5 hidden">
-            <div>
-              <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                1. Attacking Store (Spends <span class="ko-cost-inline">1</span> pt)
-              </label>
-              <select id="select-attacker" class="w-full bg-arena-bg border border-arena-border rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white focus:outline-none focus:border-magenta">
-                <!-- Populated by JS -->
-              </select>
-            </div>
-
-            <div class="flex items-center justify-center -my-1">
-              <div class="bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-widest">
-                🎯 TARGETS 👇
+          <!-- ADMIN TAB 2: EVENT LIFECYCLE, ENABLED DAYS & BONUS ROUNDS -->
+          <div id="admintab-lifecycle" class="hidden space-y-3.5 text-xs">
+            <div class="p-3 rounded-xl bg-arena-bg border border-arena-border space-y-2">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-amber-300">Daily Event Controls</div>
+              <div id="admin-event-timestamps-info" class="text-[11px] text-zinc-300 space-y-0.5 font-mono"></div>
+              <div class="grid grid-cols-2 gap-2 pt-1">
+                <button id="btn-admin-start-event" type="button" class="py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold uppercase">
+                  ▶️ Start Event
+                </button>
+                <button id="btn-admin-pause-resume" type="button" class="py-2 px-3 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-extrabold uppercase">
+                  ⏸️ Pause / Resume
+                </button>
+                <button id="btn-admin-stop-event" type="button" class="col-span-2 py-2 px-3 rounded-lg bg-red-600/80 hover:bg-red-600 text-white font-extrabold uppercase">
+                  ⏹️ Stop / End Event (Requires Confirmation)
+                </button>
               </div>
             </div>
 
-            <div>
-              <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                2. Target Store to Eliminate
-              </label>
-              <select id="select-target" class="w-full bg-arena-bg border border-arena-border rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white focus:outline-none focus:border-red-500">
-                <!-- Populated by JS -->
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
-                Trash Talk / Note (Optional)
-              </label>
-              <input id="input-ko-note" type="text" placeholder="e.g., Boom! Out of the ring! 🥊🔥"
-                     class="w-full bg-arena-bg border border-arena-border rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-magenta" />
-            </div>
-
-            <button id="btn-execute-ko" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-red-600 via-magenta to-orange-500 hover:from-red-500 hover:to-orange-400 text-white font-display text-2xl tracking-wider uppercase shadow-lg shadow-red-600/30 transition transform active:scale-95 flex items-center justify-center gap-2">
-              <span>🥊 DELIVER KNOCKOUT!</span>
-            </button>
-          </div>
-
-          <!-- TAB 3: REVIVE FORM -->
-          <div id="form-revive" class="space-y-3.5 hidden">
-            <div>
-              <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                1. Knocked-Out Store to Revive (<span id="label-revive-cost">1</span> pt)
-              </label>
-              <select id="select-revive-target" class="w-full bg-arena-bg border border-arena-border rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white focus:outline-none focus:border-emerald-500">
-                <!-- Populated by JS -->
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
-                2. Point Payer (Self-Revive or Ally Assist)
-              </label>
-              <select id="select-revive-payer" class="w-full bg-arena-bg border border-arena-border rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white focus:outline-none focus:border-emerald-500">
-                <!-- Populated by JS -->
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
-                Comeback Message (Optional)
-              </label>
-              <input id="input-revive-note" type="text" placeholder="e.g., Back from the ashes! 👀🔥"
-                     class="w-full bg-arena-bg border border-arena-border rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500" />
-            </div>
-
-            <button id="btn-execute-revive" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-display text-2xl tracking-wider uppercase shadow-lg shadow-emerald-600/30 transition transform active:scale-95 flex items-center justify-center gap-2">
-              <span>⚡ REVIVE STORE INTO THE RING!</span>
-            </button>
-          </div>
-
-          <!-- TAB 4: LIVE ANNOUNCEMENT / ADD CUSTOM STORE -->
-          <div id="form-announce" class="space-y-4 hidden">
-            <div class="p-3 rounded-xl bg-arena-bg border border-arena-border space-y-2.5">
-              <label class="block text-[11px] font-bold uppercase tracking-wider text-amber-300">
-                📢 Top Banner Broadcast (Visible to All Stores)
-              </label>
-              <input id="input-announce-text" type="text" placeholder="e.g. 🔥 DOUBLE POWER HOUR! Who's getting knocked out next?!"
-                     class="w-full bg-arena-elevated border border-arena-border rounded-lg px-3 py-2 text-xs text-white" />
+            <!-- Announce Additional 5-Min Battle Round (>= 5 min notice) -->
+            <div class="p-3 rounded-xl bg-arena-bg border border-arena-border space-y-2">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-cyan-300">Announce Additional 5-Min Round (≥ 5m Lead Time)</div>
               <div class="flex gap-2">
-                <button id="btn-post-announce" type="button" class="flex-1 py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs uppercase tracking-wider transition">
-                  Post Live Banner
-                </button>
-                <button id="btn-remove-announce" type="button" class="py-2 px-3 rounded-lg bg-arena-elevated hover:bg-red-500/20 text-zinc-300 text-xs font-bold transition">
-                  Clear
+                <input id="input-bonus-round-minutes" type="number" min="5" max="180" value="6"
+                       class="w-20 bg-arena-elevated border border-arena-border rounded-lg px-2 py-1.5 text-xs font-mono text-white text-center" />
+                <button id="btn-admin-announce-round" type="button" class="flex-1 py-1.5 px-3 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold uppercase">
+                  📢 Schedule Round (+Min from Now)
                 </button>
               </div>
             </div>
 
-            <div class="p-3 rounded-xl bg-arena-bg border border-arena-border space-y-2.5">
-              <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-300">
-                🏪 Add Extra Store to Competition
-              </label>
-              <div class="grid grid-cols-3 gap-2">
-                <input id="input-new-store-id" type="text" placeholder="ID (e.g. 901A)"
-                       class="bg-arena-elevated border border-arena-border rounded-lg px-2.5 py-2 text-xs text-white font-mono" />
-                <input id="input-new-store-name" type="text" placeholder="Team Name (e.g. Titans)"
-                       class="col-span-2 bg-arena-elevated border border-arena-border rounded-lg px-2.5 py-2 text-xs text-white" />
+            <!-- Enabled Event Days (Mon-Sun) -->
+            <div class="p-3 rounded-xl bg-arena-bg border border-arena-border space-y-2">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-300">Enabled Competition Weekdays</div>
+              <div id="admin-enabled-days-toggles" class="grid grid-cols-7 gap-1 text-center">
+                <!-- Populated by JS -->
               </div>
-              <button id="btn-add-custom-store" type="button" class="w-full py-2 px-3 rounded-lg bg-arena-elevated hover:bg-magenta/30 border border-magenta/40 text-white text-xs font-extrabold uppercase tracking-wider transition">
-                + Add Store Row
+            </div>
+
+            <!-- Broadcast Alert Banner -->
+            <div class="p-3 rounded-xl bg-arena-bg border border-arena-border space-y-2">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-amber-300">📢 Broadcast Top Banner</div>
+              <div class="flex gap-1.5">
+                <input id="input-announce-text" type="text" placeholder="Announcement text..."
+                       class="flex-1 bg-arena-elevated border border-arena-border rounded-lg px-2.5 py-1.5 text-xs text-white" />
+                <button id="btn-post-announce" type="button" class="px-3 py-1.5 rounded-lg bg-amber-500 text-black font-extrabold">Post</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ADMIN TAB 3: TIES, AUDITED CORRECTIONS & RECONCILIATION ISSUES -->
+          <div id="admintab-audit" class="hidden space-y-3.5 text-xs">
+            <!-- Elimination Tie Resolution Box -->
+            <div id="admin-elim-tie-box" class="p-3 rounded-xl bg-amber-500/10 border border-amber-400/50 space-y-2">
+              <div class="text-[10px] font-extrabold uppercase tracking-wider text-amber-300">⚖️ Elimination Checkpoint Tie Resolution</div>
+              <div id="admin-elim-tie-content" class="text-[11px] text-zinc-300">No unresolved checkpoint ties.</div>
+            </div>
+
+            <!-- Audited Bonus / Mistake Correction -->
+            <div class="p-3 rounded-xl bg-arena-bg border border-arena-border space-y-2">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Audited Point Bonus / Mistake Reversal</div>
+              <div class="grid grid-cols-2 gap-1.5">
+                <select id="select-audit-store" class="bg-arena-elevated border border-arena-border rounded-lg px-2 py-1.5 text-xs text-white"></select>
+                <input id="input-audit-points" type="number" placeholder="Pts (e.g. 200 or -200)"
+                       class="bg-arena-elevated border border-arena-border rounded-lg px-2 py-1.5 text-xs font-mono text-white" />
+              </div>
+              <select id="select-audit-status" class="w-full bg-arena-elevated border border-arena-border rounded-lg px-2 py-1.5 text-xs text-white">
+                <option value="">Keep Current Status (Points Only)</option>
+                <option value="STANDING">Restore Status → STANDING (Audited Mistake Reversal)</option>
+                <option value="KNOCKED_OUT">Set Status → KNOCKED OUT (Audited Correction)</option>
+              </select>
+              <input id="input-audit-reason" type="text" placeholder="Required audit reason..."
+                     class="w-full bg-arena-elevated border border-arena-border rounded-lg px-2.5 py-1.5 text-xs text-white" />
+              <button id="btn-submit-audit-correction" type="button" class="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold uppercase">
+                Apply Audited Correction
               </button>
             </div>
+
+            <!-- Weekly Tie Decision -->
+            <div class="p-3 rounded-xl bg-arena-bg border border-arena-border space-y-2">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-amber-300">🏆 Weekly Tiebreaker Decision (Sales Review)</div>
+              <select id="select-weekly-winner-store" class="w-full bg-arena-elevated border border-arena-border rounded-lg px-2 py-1.5 text-xs text-white"></select>
+              <input id="input-weekly-tie-reason" type="text" placeholder="Sales-based decision note..."
+                     class="w-full bg-arena-elevated border border-arena-border rounded-lg px-2.5 py-1.5 text-xs text-white" />
+              <div class="flex gap-1.5">
+                <button id="btn-resolve-weekly-winner" type="button" class="flex-1 py-1.5 px-2 rounded-lg bg-amber-500 text-black font-extrabold uppercase">
+                  Declare Winner
+                </button>
+                <button id="btn-resolve-weekly-shared" type="button" class="py-1.5 px-2 rounded-lg bg-zinc-700 text-white font-bold uppercase" title="Last resort shared result">
+                  Shared Result
+                </button>
+              </div>
+            </div>
+
+            <!-- Reconciliation Issues Queue -->
+            <div class="p-3 rounded-xl bg-arena-bg border border-arena-border space-y-2">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-pink-300">📋 Reconciliation & Late Sales Queue</div>
+              <div id="admin-reconciliation-list" class="max-h-40 overflow-y-auto space-y-1.5 text-[11px]"></div>
+            </div>
+          </div>
+
+          <!-- ADMIN TAB 4: PROVISION STORE ACCESS CODES -->
+          <div id="admintab-auth" class="hidden space-y-3 text-xs">
+            <p class="text-[11px] text-zinc-300">
+              Assign each store a confidential Access Code so stores can authenticate before launching attacks, shields, or self-revivals.
+            </p>
+            <div id="admin-store-codes-inputs" class="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+              <!-- Populated by JS -->
+            </div>
+            <button id="btn-save-store-codes" type="button" class="w-full py-2 rounded-xl bg-magenta hover:bg-magenta-light text-white font-extrabold uppercase">
+              💾 Save Store Access Codes
+            </button>
           </div>
         </div>
 
-        <!-- Combat Log / Kill Feed -->
+        <!-- Combat & Activity Feed -->
         <div class="bg-arena-card border border-arena-border rounded-2xl overflow-hidden">
           <div class="px-4 py-3 border-b border-arena-border flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="text-lg">🔥</span>
-              <h3 class="font-display text-2xl tracking-wider text-white">KNOCKOUT & ACTIVITY FEED</h3>
+              <h3 class="font-display text-2xl tracking-wider text-white">BLITZ ACTIVITY FEED</h3>
               <span id="feed-count" class="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-arena-elevated text-zinc-300">0</span>
             </div>
-            <button id="btn-undo-last" class="admin-only hidden text-[11px] font-semibold text-zinc-400 hover:text-amber-300 transition items-center gap-1 disabled:opacity-40" title="Undo last knockout/revive">
-              <span>↩️ Undo KO</span>
-            </button>
           </div>
-          <div id="combat-feed" class="p-3.5 max-h-[380px] overflow-y-auto space-y-2.5">
+          <div id="combat-feed" class="p-3.5 max-h-[380px] overflow-y-auto space-y-2">
             <!-- Populated by JS -->
           </div>
         </div>
 
-        <!-- Official Point System Promo Card -->
-        <div class="bg-arena-card border border-arena-border rounded-2xl p-4">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="font-display text-2xl tracking-wider text-amber-400">🏆 OFFICIAL POINT SYSTEM</h3>
-            <span class="text-xs">🥊💥</span>
+        <!-- Official Knockout Blitz Quick Reference Card -->
+        <div class="bg-arena-card border border-arena-border rounded-2xl p-4 text-xs space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-display text-2xl tracking-wider text-amber-400">🏆 KNOCKOUT BLITZ RULES</h3>
+            <span class="text-[10px] font-mono text-zinc-400">America/New_York</span>
           </div>
-          <div class="grid grid-cols-2 gap-3 text-xs">
-            <div class="bg-arena-elevated/80 border border-white/5 rounded-xl p-3">
-              <div class="font-extrabold text-amber-300 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                <span>🥊</span> <span>1 POINT</span>
-              </div>
-              <ul class="space-y-1 text-zinc-300">
-                <li>• VL Activations</li>
-                <li>• Watches <span class="text-zinc-500">(BTS)</span></li>
-                <li>• Tablets <span class="text-zinc-500">(BTS)</span></li>
-                <li>• Every $100 in Acc</li>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="bg-arena-elevated/80 border border-white/5 rounded-xl p-2.5">
+              <div class="font-extrabold text-amber-300 uppercase mb-1">⚡ POINT SCORING</div>
+              <ul class="space-y-0.5 text-[11px] text-zinc-300">
+                <li>• Voice Line (VL): <strong>200 pts</strong></li>
+                <li>• Watch / Tablet (BTS): <strong>200 pts</strong></li>
+                <li>• HINT / HSI: <strong>600 pts</strong></li>
+                <li>• Accessories: <strong>2 pts / $1</strong></li>
+                <li class="text-emerald-300">• Every 300 Sales Pts: <strong>+300 Bonus!</strong></li>
               </ul>
             </div>
-            <div class="bg-magenta/10 border border-magenta/30 rounded-xl p-3">
-              <div class="font-extrabold text-magenta-light uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                <span>💥</span> <span>2 POINTS</span>
-              </div>
-              <ul class="space-y-1 text-zinc-200">
-                <li>• Beyond VL Act.</li>
-                <li>• HINTs <span class="text-zinc-400">(HSI)</span></li>
-                <li>• Every $200 in Acc</li>
+            <div class="bg-magenta/10 border border-magenta/30 rounded-xl p-2.5">
+              <div class="font-extrabold text-magenta-light uppercase mb-1">🥊 COMBAT & PERKS</div>
+              <ul class="space-y-0.5 text-[11px] text-zinc-200">
+                <li>• Normal Attack: <strong>200 → 400 dmg</strong></li>
+                <li>• Deflected Hit: <strong>200 → 100 dmg</strong></li>
+                <li>• Breaker (2nd hit): <strong>400 → 500 dmg</strong></li>
+                <li>• Revival: <strong>200 / 400 in round</strong></li>
+                <li>• Power Shield: <strong>600 pts (3m block)</strong></li>
               </ul>
             </div>
           </div>
@@ -726,20 +768,29 @@
     </div>
   </div>
 
-  <!-- "WHICH STORE ARE YOU?" IDENTITY PICKER MODAL -->
+  <!-- STORE SELECTOR MODAL -->
   <div id="modal-pick-store" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
-    <div class="bg-arena-card border-2 border-magenta/60 rounded-3xl max-w-2xl w-full p-6 shadow-2xl relative">
-      <button id="btn-close-pick-store" class="absolute top-4 right-4 w-9 h-9 rounded-xl bg-arena-elevated hover:bg-red-500/20 text-zinc-400 hover:text-white flex items-center justify-center">✕</button>
-      <div class="text-center mb-5">
-        <span class="text-5xl">🥊🔥</span>
-        <h2 class="font-display text-4xl sm:text-5xl tracking-wider text-white mt-1">WHICH STORE ARE YOU REPRESENTING?</h2>
-        <p class="text-xs sm:text-sm text-zinc-300 mt-1">
-          Select your store so you're locked & loaded when the <strong class="text-magenta-light">5-Minute Knockout Window</strong> opens!
+    <div class="bg-arena-card border-2 border-magenta/60 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+      <button id="btn-close-pick-store" class="absolute top-4 right-4 w-8 h-8 rounded-xl bg-arena-elevated hover:bg-red-500/20 text-zinc-400 hover:text-white flex items-center justify-center">✕</button>
+      <div class="text-center mb-4">
+        <span class="text-4xl">🏪🥊</span>
+        <h2 class="font-display text-3xl tracking-wider text-white mt-1">SELECT YOUR STORE</h2>
+        <p class="text-xs text-zinc-400 mt-1">
+          Choose which store you are playing for in the Combat Deck.
         </p>
       </div>
-      <div id="store-picker-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-[60vh] overflow-y-auto p-1">
-        <!-- Populated by JS -->
-      </div>
+      <form id="form-store-auth" class="space-y-3.5">
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-300 mb-1">Store</label>
+          <select id="select-auth-store-id" class="w-full bg-arena-bg border border-arena-border rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white">
+            <!-- Populated by JS -->
+          </select>
+          <p id="store-auth-error" class="hidden text-xs text-red-400 font-semibold mt-1.5 text-center"></p>
+        </div>
+        <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-magenta to-red-600 hover:from-magenta-light hover:to-red-500 text-white font-display text-2xl tracking-wider uppercase shadow-lg">
+          SELECT STORE
+        </button>
+      </form>
     </div>
   </div>
 
@@ -750,14 +801,14 @@
       <div class="text-center mb-4">
         <span class="text-4xl">🔐</span>
         <h2 class="font-display text-3xl tracking-wider text-white mt-1">SERVER ADMIN ACCESS</h2>
-        <p class="text-xs text-zinc-400 mt-1">Unlock manual line entry, 5-Min Battle Window, and Admin controls.</p>
+        <p class="text-xs text-zinc-400 mt-1">Authenticate with the server's configured ADMIN_PIN.</p>
       </div>
       <form id="form-admin-pin" class="space-y-4">
         <div>
           <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Admin Passcode / PIN</label>
-          <input id="input-admin-pin" type="password" placeholder="Enter PIN (default: 2026)"
+          <input id="input-admin-pin" type="password" placeholder="Enter ADMIN_PIN"
                  class="w-full bg-arena-bg border border-arena-border rounded-xl px-4 py-3 text-center font-mono text-lg font-bold text-white tracking-widest focus:outline-none focus:border-magenta" />
-          <p id="admin-pin-error" class="hidden text-xs text-red-400 font-semibold mt-1.5 text-center">Invalid PIN. Please try again.</p>
+          <p id="admin-pin-error" class="hidden text-xs text-red-400 font-semibold mt-1.5 text-center"></p>
         </div>
         <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-magenta to-red-600 hover:from-magenta-light hover:to-red-500 text-white font-display text-2xl tracking-wider uppercase shadow-lg">
           UNLOCK ADMIN MODE
@@ -766,87 +817,37 @@
     </div>
   </div>
 
-  <!-- Point System & Premise Modal -->
+  <!-- Complete Rules Modal -->
   <div id="modal-rules" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
-    <div class="bg-arena-card border-2 border-magenta/50 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative">
+    <div class="bg-arena-card border-2 border-magenta/50 rounded-3xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto">
       <button id="btn-close-rules" class="absolute top-4 right-4 w-9 h-9 rounded-xl bg-arena-elevated hover:bg-red-500/20 text-zinc-400 hover:text-white flex items-center justify-center">✕</button>
       <div class="text-center mb-4">
         <span class="text-4xl">🥊🔥</span>
-        <h2 class="font-display text-4xl tracking-wider text-white mt-1">KNOCKOUT SUNDAY!</h2>
-        <p class="text-xs font-bold uppercase tracking-widest text-magenta-light">🥊 KNOCKOUT IS THE NAME OF THE GAME! 🥊</p>
+        <h2 class="font-display text-4xl tracking-wider text-white mt-1">KNOCKOUT BLITZ OFFICIAL SPECIFICATION</h2>
+        <p class="text-xs font-bold uppercase tracking-widest text-magenta-light">All Schedules in America/New_York (Eastern Time)</p>
       </div>
-      <div class="space-y-4 text-sm text-zinc-300 leading-relaxed">
-        <p>
-          Every point gives your store the power to <strong class="text-red-400">ELIMINATE</strong> another store in the district! But be careful… even if your store gets knocked out, you can use your points to <strong class="text-emerald-400">REVIVE</strong> and fight your way back into the competition! 👀🔥
-        </p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div class="bg-arena-elevated border border-arena-border rounded-2xl p-4">
-            <h4 class="font-display text-2xl text-amber-400 tracking-wide mb-2">🥊 1 POINT</h4>
-            <ul class="space-y-1.5 text-xs">
-              <li>• <strong>VL Activations</strong></li>
-              <li>• <strong>Watches & Tablets</strong> (BTS)</li>
-              <li>• <strong>Every $100 in Accessories</strong></li>
-            </ul>
-          </div>
-          <div class="bg-magenta/10 border border-magenta/30 rounded-2xl p-4">
-            <h4 class="font-display text-2xl text-magenta-light tracking-wide mb-2">💥 2 POINTS</h4>
-            <ul class="space-y-1.5 text-xs">
-              <li>• <strong>Beyond VL Activations</strong></li>
-              <li>• <strong>HINTs</strong> (HSI)</li>
-              <li>• <strong>Every $200 in Accessories</strong></li>
-            </ul>
-          </div>
+      <div class="space-y-3 text-xs text-zinc-300 leading-relaxed">
+        <div class="p-3 rounded-xl bg-arena-elevated border border-arena-border">
+          <strong class="text-amber-300 uppercase">1. Schedule & Weekly Competition:</strong>
+          <div>• <strong>Mon–Sat:</strong> 11:00 AM–8:45 PM ET (Final Stretch & 3-Hour Power Hours: 5:45–8:45 PM ET).</div>
+          <div>• <strong>Sunday:</strong> 1:00 PM–5:45 PM ET (Final Stretch: 3:45–5:45 PM ET, 1-Hour Power Phase: 4:45–5:45 PM ET).</div>
+          <div>• <strong>Weekly Period:</strong> Sunday 7:00 PM ET to next Sunday 7:00 PM ET. Surviving stores at daily closing become <strong>Daily Qualifiers</strong>. Every store participates in every enabled daily event with cumulative weekly earned points carried over!</div>
         </div>
-        <p class="text-center font-bold text-amber-300 pt-2">
-          Every point counts. Every store is a target. And only ONE store can be the last one standing! 🏆
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Settings & Customization Modal (Admin) -->
-  <div id="modal-settings" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
-    <div class="bg-arena-card border border-arena-border rounded-3xl max-w-lg w-full p-6 shadow-2xl relative">
-      <button id="btn-close-settings" class="absolute top-4 right-4 w-9 h-9 rounded-xl bg-arena-elevated hover:bg-red-500/20 text-zinc-400 hover:text-white flex items-center justify-center">✕</button>
-      <h2 class="font-display text-3xl tracking-wider text-white mb-1">⚙️ SERVER ARENA SETTINGS</h2>
-      <p class="text-xs text-zinc-400 mb-5">Customize point costs, Google Sheet link, or reset arena data on the server.</p>
-
-      <div class="space-y-4">
-        <div class="grid grid-cols-2 gap-3">
-          <div class="bg-arena-elevated border border-arena-border rounded-xl p-3.5">
-            <label class="block text-xs font-bold text-zinc-300 mb-1">🥊 Knockout Point Cost</label>
-            <input id="setting-ko-cost" type="number" min="1" max="20" value="1"
-                   class="w-full bg-arena-bg border border-arena-border rounded-lg px-3 py-2 text-sm font-bold text-white" />
-          </div>
-          <div class="bg-arena-elevated border border-arena-border rounded-xl p-3.5">
-            <label class="block text-xs font-bold text-zinc-300 mb-1">⚡ Revive Point Cost</label>
-            <input id="setting-revive-cost" type="number" min="1" max="20" value="1"
-                   class="w-full bg-arena-bg border border-arena-border rounded-lg px-3 py-2 text-sm font-bold text-white" />
-          </div>
+        <div class="p-3 rounded-xl bg-arena-elevated border border-arena-border">
+          <strong class="text-amber-300 uppercase">2. Point Scoring, Sales Milestone Bonus & 3-Min Cutoffs:</strong>
+          <div>• <strong>200 pts:</strong> Voice Line (VL), Watch (BTS), Tablet (BTS).</div>
+          <div>• <strong>600 pts:</strong> HINT / HSI.</div>
+          <div>• <strong>Accessories:</strong> 2 points per $1 immediately ($25 = 50 pts, $50 = 100 pts, $100 = 200 pts).</div>
+          <div>• <strong>Sales Milestone Bonus:</strong> For every <strong>300 points earned from sales</strong>, the store automatically receives an extra <strong>+300 bonus points</strong>!</div>
+          <div>• <strong>Battle Rounds:</strong> :10, :30, :50 each hour (5 mins each, max 2 attacks/store). Sales cutoffs are 3 mins prior (:07, :27, :47).</div>
         </div>
-
-        <div class="bg-arena-elevated border border-arena-border rounded-xl p-3.5 flex items-center justify-between">
-          <div>
-            <div class="text-xs font-bold text-zinc-200">Allow Knocked-Out Stores to Attack?</div>
-            <div class="text-[11px] text-zinc-400">If off, eliminated stores must Revive first before knocking out others.</div>
-          </div>
-          <input id="setting-ko-can-attack" type="checkbox" class="w-5 h-5 accent-magenta rounded cursor-pointer" />
-        </div>
-
-        <div class="bg-arena-elevated border border-arena-border rounded-xl p-3.5">
-          <label class="block text-xs font-bold text-zinc-300 mb-1">📊 Google Sheet URL or ID</label>
-          <input id="setting-sheet-url" type="text"
-                 value="https://docs.google.com/spreadsheets/d/1hJuUd6UkzfWBeTywVM6Yi5g0BxJodsNLe0XHgt-9nOQ/edit?gid=1896995460"
-                 class="w-full bg-arena-bg border border-arena-border rounded-lg px-3 py-2 text-xs text-zinc-300 font-mono" />
-        </div>
-
-        <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-arena-border">
-          <button id="btn-reset-combat" class="px-4 py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 text-red-300 text-xs font-bold transition">
-            🗑️ Reset All Server Lines & Knockouts
-          </button>
-          <button id="btn-save-settings" class="px-5 py-2.5 rounded-xl bg-magenta hover:bg-magenta-light text-white text-xs font-extrabold uppercase tracking-wider transition">
-            Save to Server
-          </button>
+        <div class="p-3 rounded-xl bg-arena-elevated border border-arena-border">
+          <strong class="text-amber-300 uppercase">3. Combat, Deflection, Power Phase & Shields:</strong>
+          <div>• <strong>Normal Attack:</strong> Cost 200 available pts → 400 damage.</div>
+          <div>• <strong>Deflection (Regular Hours after 120m):</strong> Survive ≥ 2 incoming attacks in minutes 0–120 and hold ≥ 1,350 available pts at round start. Reduces incoming simple attack to 100 dmg (cost 200). Same attacker can follow up in the same round with a <strong>Deflection Breaker</strong> (cost 400 → 500 dmg & breaks deflection for the round).</div>
+          <div>• <strong>Power Phase Entry:</strong> Requires ≥ 350 available pts at entry (5:45 PM Mon–Sat / 4:45 PM Sun). If all standing stores are below 350, the daily event ends immediately as a <strong>DRAW</strong>.</div>
+          <div>• <strong>Shields (Power Phase Only):</strong> Buy between rounds for 600 available pts (max 1 per upcoming round). Blocks all attacks for the first 3 minutes of that round.</div>
+          <div>• <strong>Self-Revivals (Before Power Phase Only):</strong> 200 available pts outside a round, 400 available pts during a round. Permanently disabled during Power Phase.</div>
         </div>
       </div>
     </div>

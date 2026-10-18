@@ -2,6 +2,9 @@
   publish = "."
   functions = "netlify/functions"
 
+[functions."scheduled-tick"]
+  schedule = "* * * * *"
+
 [[redirects]]
   from = "/api/state"
   to = "/.netlify/functions/state"

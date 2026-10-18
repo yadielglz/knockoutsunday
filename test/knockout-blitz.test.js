@@ -716,7 +716,7 @@ test('Sections 2, 5 & 6: Daily carryover (spending/damage do not reduce next day
 // 8. MIGRATION (Section 19) & AUTH / CONCURRENCY / PERSISTENCE (Sections 17, 18)
 // ---------------------------------------------------------------------------
 test('Section 19: v1 -> v2 schema migration preserves backup and recalculates 769D sales quantities with HINT=600 and +300 milestone bonus', () => {
-  const v1Raw = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'state-db.json'), 'utf8'));
+  const v1Raw = { version: 15, manualLines: { '769D': { beyondVl: 3, hsi: 1 } } };
   const migrated = migration.migrateV1ToV2(v1Raw, time.easternWallTimeToEpochMs(2026, 10, 18, 15, 0, 0));
 
   assert.equal(migrated.schemaVersion, 2);

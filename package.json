@@ -6,9 +6,16 @@
   "scripts": {
     "start": "node dev-server.js",
     "dev": "node dev-server.js",
-    "test": "node --test test/knockout-blitz.test.js"
+    "test": "node --test test/*.test.js",
+    "build": "tailwindcss -c tailwind.config.cjs -i tailwind.input.css -o tailwind.css --minify"
   },
   "dependencies": {
-    "@netlify/blobs": "^8.1.0"
+    "@netlify/blobs": "^11.1.4"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
   }
 }

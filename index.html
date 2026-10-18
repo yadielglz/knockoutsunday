@@ -4,38 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🥊 KNOCKOUT BLITZ 🔥 | District Battle Arena</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="tailwind.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            display: ['"Bebas Neue"', 'sans-serif'],
-            sans: ['Inter', 'sans-serif'],
-            mono: ['"JetBrains Mono"', 'monospace'],
-          },
-          colors: {
-            magenta: {
-              DEFAULT: '#E20074',
-              dark: '#A80055',
-              light: '#FF2A95',
-              glow: 'rgba(226, 0, 116, 0.45)',
-            },
-            arena: {
-              bg: '#09090E',
-              card: '#12131C',
-              border: '#252738',
-              elevated: '#191B28',
-            }
-          }
-        }
-      }
-    }
-  </script>
+
 </head>
 <body class="bg-arena-bg text-white font-sans min-h-screen selection:bg-magenta selection:text-white overflow-x-hidden">
 

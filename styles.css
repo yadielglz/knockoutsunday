@@ -1,0 +1,94 @@
+/* Custom Styles & Animations for Knockout Sunday */
+
+.arena-grid-bg {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.filter-tab {
+  color: #9ca3af;
+  background: transparent;
+}
+.filter-tab:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+.filter-tab.active {
+  background: linear-gradient(135deg, #E20074, #b91c1c);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(226, 0, 116, 0.35);
+}
+
+.mode-tab.active-lines {
+  background: linear-gradient(135deg, #E20074, #9333ea);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(226, 0, 116, 0.35);
+}
+
+.mode-tab.active-ko {
+  background: linear-gradient(135deg, #dc2626, #E20074);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+}
+
+.mode-tab.active-revive {
+  background: linear-gradient(135deg, #059669, #0d9488);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.35);
+}
+
+.mode-tab.active-announce {
+  background: linear-gradient(135deg, #d97706, #ea580c);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.35);
+}
+
+/* Store Card Transitions */
+.store-card {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.store-card:hover {
+  transform: translateY(-2px);
+}
+
+.store-card.is-eliminated {
+  background: linear-gradient(180deg, rgba(24, 15, 20, 0.9), rgba(14, 14, 20, 0.95));
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.store-card.is-survivor {
+  border-color: rgba(251, 191, 36, 0.8);
+  box-shadow: 0 0 28px rgba(251, 191, 36, 0.2);
+}
+
+/* Screen shake for KO */
+@keyframes screenShake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  15% { transform: translate(-8px, -5px) rotate(-1deg); }
+  30% { transform: translate(8px, 4px) rotate(1deg); }
+  45% { transform: translate(-6px, 6px) rotate(-0.5deg); }
+  60% { transform: translate(6px, -4px) rotate(0.5deg); }
+  75% { transform: translate(-3px, 2px) rotate(0deg); }
+}
+
+.shake-screen {
+  animation: screenShake 0.45s ease-in-out;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #09090E;
+}
+::-webkit-scrollbar-thumb {
+  background: #252738;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #E20074;
+}

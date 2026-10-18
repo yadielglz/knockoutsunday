@@ -1,16 +1,18 @@
 /**
- * 🥊 KNOCKOUT SUNDAY! 🔥 — District Battle Arena (Public Viewer + Server Admin Edition)
- * Syncs with:
- *   1. Shared Server Endpoint (/api/state -> Netlify Functions + Blobs or local dev-server.js)
- *   2. Google Sheet (1hJuUd6UkzfWBeTywVM6Yi5g0BxJodsNLe0XHgt-9nOQ, gid=1896995460)
+ * 🥊 KNOCKOUT SUNDAY! 🔥 — District Battle Arena
+ * Features:
+ *   - "Which Store Are You?" Store Identity Picker + Store Battle Arena
+ *   - 5-Minute Live Battle Window (Admin opens Knockouts for 5 minutes with live countdown across all viewers)
+ *   - Admin Command Center (PIN-protected manual sales lines, Knockouts, Revives, Broadcasts)
+ *   - Live Google Sheet + Netlify Server State sync
  */
 
 const DEFAULT_SHEET_ID = '1hJuUd6UkzfWBeTywVM6Yi5g0BxJodsNLe0XHgt-9nOQ';
 const DEFAULT_GID = '1896995460';
-const LOCAL_CACHE_KEY = 'knockout_sunday_server_cache_v2';
+const LOCAL_CACHE_KEY = 'knockout_sunday_server_cache_v3';
 const ADMIN_PIN_STORAGE_KEY = 'knockout_sunday_admin_pin';
+const MY_STORE_STORAGE_KEY = 'knockout_sunday_my_store_id';
 
-// Initial snapshot from the Google Sheet so it loads instantaneously
 const INITIAL_SHEET_SNAPSHOT = [
   { id: '843D', name: '843D - El Cartel', emoji: '🎩', nrGoal: 1281, netRev: 95, accGoal: 349, acc: 50, postGoal: 7, totalPP: 1, vl: 1, bts: 0, hsi: 0, visa: 0, preOrders: 1 },
   { id: '693D', name: '693D - Spartans', emoji: '⚔️', nrGoal: 1316, netRev: 0, accGoal: 371, acc: 0, postGoal: 9, totalPP: 0, vl: 0, bts: 0, hsi: 0, visa: 0, preOrders: 0 },
@@ -51,11 +53,14 @@ let state = {
   sheetStores: JSON.parse(JSON.stringify(INITIAL_SHEET_SNAPSHOT)),
   customStores: [],
   announcement: { text: '', active: false, updatedAt: null },
-  // { [storeId]: { vl: 0, beyondVl: 0, watches: 0, tablets: 0, hsi: 0, acc: 0, bonusPts: 0 } }
+  battleWindow: {
+    active: false,
+    startedAt: null,
+    endsAt: null,
+    durationSeconds: 300
+  },
   manualLines: {},
-  // [ { id, timestamp, storeId, category, qty, note } ]
   salesLog: [],
-  // [ { id, timestamp, type: 'KO' | 'REVIVE', attackerId, targetId, cost, note } ]
   combatLog: [],
   settings: {
     koCost: 1,
@@ -66,13 +71,15 @@ let state = {
   },
   auth: {
     isAdmin: false,
-    pin: ''
+    pin: '',
+    myStoreId: ''
   },
   ui: {
     filter: 'all',
     sortBy: 'available_desc',
-    commandMode: 'lines', // 'lines' | 'ko' | 'revive' | 'announce'
-    lastCombatEventId: null
+    commandMode: 'lines',
+    lastCombatEventId: null,
+    wasBattleWindowOpen: false
   }
 };
 
@@ -135,6 +142,26 @@ const SoundFX = {
       });
     } catch (e) {}
   },
+  playSiren() {
+    if (!state.settings.soundEnabled) return;
+    try {
+      this.init();
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.linearRampToValueAtTime(880, now + 0.35);
+      osc.frequency.linearRampToValueAtTime(440, now + 0.7);
+      osc.frequency.linearRampToValueAtTime(880, now + 1.05);
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.15);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 1.18);
+    } catch (e) {}
+  },
   playCoin() {
     if (!state.settings.soundEnabled) return;
     try {
@@ -156,13 +183,37 @@ const SoundFX = {
   }
 };
 
-// Local cache fallback
+// Check if the 5-minute Battle Window is currently active
+function isBattleWindowOpen() {
+  if (!state.battleWindow || !state.battleWindow.active || !state.battleWindow.endsAt) {
+    return false;
+  }
+  return Date.now() < new Date(state.battleWindow.endsAt).getTime();
+}
+
+function getBattleWindowRemainingSeconds() {
+  if (!isBattleWindowOpen()) return 0;
+  const diff = Math.max(0, Math.ceil((new Date(state.battleWindow.endsAt).getTime() - Date.now()) / 1000));
+  return diff;
+}
+
+function formatMMSS(totalSec) {
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+// Local cache & store identity
 function loadLocalCache() {
   try {
     const savedPin = sessionStorage.getItem(ADMIN_PIN_STORAGE_KEY);
     if (savedPin) {
       state.auth.pin = savedPin;
       state.auth.isAdmin = true;
+    }
+    const savedStore = localStorage.getItem(MY_STORE_STORAGE_KEY);
+    if (savedStore) {
+      state.auth.myStoreId = savedStore;
     }
     const raw = localStorage.getItem(LOCAL_CACHE_KEY);
     if (!raw) return;
@@ -182,6 +233,7 @@ function getSerializableSharedState() {
     version: state.version,
     districtName: state.districtName,
     announcement: state.announcement,
+    battleWindow: state.battleWindow,
     manualLines: state.manualLines,
     salesLog: state.salesLog,
     combatLog: state.combatLog,
@@ -199,9 +251,11 @@ function applySharedStateObject(serverData, triggerNewEventFX = true) {
   if (!serverData || typeof serverData !== 'object') return;
 
   const prevLastKoId = state.combatLog.length > 0 ? state.combatLog[state.combatLog.length - 1].id : null;
+  const wasWindowOpen = isBattleWindowOpen();
 
   if (serverData.districtName) state.districtName = serverData.districtName;
   if (serverData.announcement) state.announcement = serverData.announcement;
+  if (serverData.battleWindow) state.battleWindow = serverData.battleWindow;
   if (serverData.manualLines) state.manualLines = serverData.manualLines;
   if (Array.isArray(serverData.salesLog)) state.salesLog = serverData.salesLog;
   if (Array.isArray(serverData.combatLog)) state.combatLog = serverData.combatLog;
@@ -211,7 +265,13 @@ function applySharedStateObject(serverData, triggerNewEventFX = true) {
   }
   if (serverData.version) state.version = serverData.version;
 
-  // If a brand new KO or Revive arrived from the server while a viewer is watching, play the FX banner!
+  const nowWindowOpen = isBattleWindowOpen();
+  if (triggerNewEventFX && !wasWindowOpen && nowWindowOpen) {
+    SoundFX.playSiren();
+    triggerBannerFX('WINDOW_OPEN', { name: '5-MINUTE KNOCKOUT WINDOW OPEN!' }, null, 'All stores can now submit Knockouts & Revives!');
+  }
+  state.ui.wasBattleWindowOpen = nowWindowOpen;
+
   if (triggerNewEventFX && state.combatLog.length > 0) {
     const latestEvt = state.combatLog[state.combatLog.length - 1];
     if (latestEvt.id !== prevLastKoId && state.ui.lastCombatEventId !== null) {
@@ -239,9 +299,7 @@ async function fetchServerState(triggerFX = true) {
       renderAll();
       return true;
     }
-  } catch (err) {
-    // Offline or opened via file://
-  }
+  } catch (err) {}
   return false;
 }
 
@@ -288,6 +346,119 @@ async function pushServerState() {
     syncStatusText.textContent = 'Saved Locally';
   }
 }
+
+// Public Store Combat submission during the 5-minute Battle Window
+async function submitStoreCombatToServer(type, attackerId, targetId, note) {
+  try {
+    const res = await fetch('/api/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'store_combat',
+        type,
+        attackerId,
+        targetId,
+        note
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || 'Could not submit combat action.');
+      return false;
+    }
+    applySharedStateObject(data, false);
+    saveLocalCache();
+    renderAll();
+    return true;
+  } catch (err) {
+    // Fallback if offline
+    const cost = type === 'REVIVE' ? Number(state.settings.reviveCost || 1) : Number(state.settings.koCost || 1);
+    const newEvt = {
+      id: 'evt_' + Date.now(),
+      timestamp: new Date().toISOString(),
+      type,
+      attackerId,
+      targetId,
+      cost,
+      note,
+      submittedByStore: true
+    };
+    state.combatLog.push(newEvt);
+    state.ui.lastCombatEventId = newEvt.id;
+    saveLocalCache();
+    renderAll();
+    return true;
+  }
+}
+
+// Admin: Start or Stop 5-Minute Battle Window
+function startFiveMinuteBattleWindow() {
+  if (!state.auth.isAdmin) return;
+  const now = Date.now();
+  const durationSec = 300; // 5 minutes
+  state.battleWindow = {
+    active: true,
+    startedAt: new Date(now).toISOString(),
+    endsAt: new Date(now + durationSec * 1000).toISOString(),
+    durationSeconds: durationSec
+  };
+  state.ui.wasBattleWindowOpen = true;
+  SoundFX.playSiren();
+  triggerBannerFX('WINDOW_OPEN', { name: '5-MINUTE KNOCKOUT WINDOW OPEN!' }, null, 'All stores can now submit Knockouts & Revives!');
+  pushServerState();
+}
+
+function stopBattleWindow() {
+  if (!state.auth.isAdmin) return;
+  state.battleWindow = {
+    active: false,
+    startedAt: null,
+    endsAt: null,
+    durationSeconds: 300
+  };
+  state.ui.wasBattleWindowOpen = false;
+  pushServerState();
+}
+
+// Store Identity Picker ("Which Store Are You?")
+function openStorePickerModal() {
+  const modal = document.getElementById('modal-pick-store');
+  const grid = document.getElementById('store-picker-grid');
+  const computed = getComputedStores();
+
+  grid.innerHTML = computed.map(store => {
+    const isSelected = state.auth.myStoreId === store.id;
+    return `
+      <button type="button" onclick="selectMyStore('${store.id}')"
+              class="p-3.5 rounded-2xl border text-left transition flex items-center justify-between gap-2 ${
+                isSelected
+                  ? 'bg-magenta/25 border-magenta shadow-lg shadow-magenta/20'
+                  : 'bg-arena-elevated hover:bg-magenta/15 border-arena-border hover:border-magenta/50'
+              }">
+        <div class="flex items-center gap-2.5">
+          <span class="text-2xl">${store.emoji}</span>
+          <div>
+            <div class="font-display text-xl tracking-wide text-white leading-tight">${escapeHtml(store.name)}</div>
+            <div class="text-[11px] font-mono text-amber-400 font-bold">${store.availablePoints} pts avail</div>
+          </div>
+        </div>
+        ${isSelected ? '<span class="text-xs px-2 py-0.5 rounded-full bg-magenta text-white font-extrabold">YOU</span>' : ''}
+      </button>
+    `;
+  }).join('');
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+window.selectMyStore = function (storeId) {
+  state.auth.myStoreId = storeId;
+  localStorage.setItem(MY_STORE_STORAGE_KEY, storeId);
+  const modal = document.getElementById('modal-pick-store');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+  renderAll();
+};
 
 // Combine sheet stores + custom stores + manualLines + combatLog
 function getComputedStores() {
@@ -374,13 +545,11 @@ function getComputedStores() {
 
     const bonusPts = Number(m.bonusPts || 0);
 
-    // Combined totals (Sheet + Admin manual entries)
     const vl = Math.max(0, sheetVl + manualVl);
     const bts = Math.max(0, sheetBts + manualBts);
     const hsi = Math.max(0, sheetHsi + manualHsi);
     const acc = Math.max(0, sheetAcc + manualAcc);
 
-    // Points Calculation
     const vlPts = vl * 1;
     const beyondVlPts = beyondVl * 2;
     const btsPts = bts * 1;
@@ -612,7 +781,6 @@ window.adjustStoreManual = function (storeId, field, delta) {
   pushServerState();
 };
 
-// ADMIN: 1-Click Quick Log Sale from Admin Command Center
 window.quickLogSale = function (category, qty, customNote = '') {
   if (!state.auth.isAdmin) return;
   const storeSelect = document.getElementById('select-line-store');
@@ -646,7 +814,6 @@ window.quickLogSale = function (category, qty, customNote = '') {
   pushServerState();
 };
 
-// Undo / Delete a manual sale entry from the feed
 window.deleteSaleEvent = function (saleId) {
   if (!state.auth.isAdmin) return;
   const sale = state.salesLog.find(s => s.id === saleId);
@@ -658,15 +825,31 @@ window.deleteSaleEvent = function (saleId) {
   pushServerState();
 };
 
-// Pre-fill Admin Command Center from a Store Card button
+// Store Card Action Button Handler (Works for both Store Battle Window & Admin)
 window.quickSelectAction = function (storeId, actionType) {
+  const computed = getComputedStores();
+  const store = computed.find(s => s.id === storeId);
+  if (!store) return;
+
+  // Store targeting a rival during the 5-Minute Battle Window
+  if (actionType === 'store_target_ko') {
+    if (!state.auth.myStoreId) {
+      openStorePickerModal();
+      return;
+    }
+    const targetSelect = document.getElementById('select-store-battle-target');
+    if (targetSelect) {
+      targetSelect.value = storeId;
+      document.getElementById('store-battle-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById('input-store-battle-note')?.focus();
+    }
+    return;
+  }
+
   if (!state.auth.isAdmin) {
     openAdminLoginModal();
     return;
   }
-  const computed = getComputedStores();
-  const store = computed.find(s => s.id === storeId);
-  if (!store) return;
 
   if (actionType === 'add_line') {
     setCommandMode('lines');
@@ -693,6 +876,97 @@ window.quickSelectAction = function (storeId, actionType) {
     }
   }
 };
+
+// Public Store submits Knockout during 5-Min Battle Window
+async function executeStoreBattleKnockout() {
+  if (!isBattleWindowOpen()) {
+    alert('The 5-Minute Knockout Window has closed!');
+    renderAll();
+    return;
+  }
+  const myStoreId = state.auth.myStoreId;
+  if (!myStoreId) {
+    openStorePickerModal();
+    return;
+  }
+
+  const targetId = document.getElementById('select-store-battle-target').value;
+  const noteInput = document.getElementById('input-store-battle-note');
+  const note = (noteInput.value || '').trim();
+
+  if (!targetId) {
+    alert('Pick a rival store to eliminate!');
+    return;
+  }
+  if (myStoreId === targetId) {
+    alert('You cannot eliminate your own store!');
+    return;
+  }
+
+  const computed = getComputedStores();
+  const attacker = computed.find(s => s.id === myStoreId);
+  const target = computed.find(s => s.id === targetId);
+  const cost = Number(state.settings.koCost || 1);
+
+  if (!attacker || !target) return;
+  if (!state.settings.koCanAttack && attacker.isEliminated) {
+    alert(`${attacker.name} is currently KNOCKED OUT! Use the Revive button first!`);
+    return;
+  }
+  if (attacker.availablePoints < cost) {
+    alert(`${attacker.name} needs at least ${cost} available point(s) to submit a Knockout!`);
+    return;
+  }
+  if (target.isEliminated) {
+    alert(`${target.name} is already knocked out!`);
+    return;
+  }
+
+  const ok = await submitStoreCombatToServer('KO', myStoreId, targetId, note);
+  if (ok) {
+    noteInput.value = '';
+    SoundFX.playKO();
+    triggerBannerFX('KO', attacker, target, note);
+  }
+}
+
+// Public Store submits Self-Revive during 5-Min Battle Window
+async function executeStoreBattleRevive() {
+  if (!isBattleWindowOpen()) {
+    alert('The 5-Minute Knockout Window has closed!');
+    renderAll();
+    return;
+  }
+  const myStoreId = state.auth.myStoreId;
+  if (!myStoreId) {
+    openStorePickerModal();
+    return;
+  }
+
+  const computed = getComputedStores();
+  const myStore = computed.find(s => s.id === myStoreId);
+  const cost = Number(state.settings.reviveCost || 1);
+
+  if (!myStore) return;
+  if (!myStore.isEliminated) {
+    alert(`${myStore.name} is already standing in the ring!`);
+    return;
+  }
+  if (myStore.availablePoints < cost) {
+    alert(`${myStore.name} needs at least ${cost} available point(s) to self-revive!`);
+    return;
+  }
+
+  const noteInput = document.getElementById('input-store-revive-note');
+  const note = (noteInput.value || '').trim();
+
+  const ok = await submitStoreCombatToServer('REVIVE', myStoreId, myStoreId, note);
+  if (ok) {
+    noteInput.value = '';
+    SoundFX.playRevive();
+    triggerBannerFX('REVIVE', myStore, myStore, note);
+  }
+}
 
 // Execute Knockout (Admin)
 function executeKnockout() {
@@ -833,6 +1107,12 @@ function triggerBannerFX(type, actor, target, note) {
     subtitle.innerHTML = selfRevive
       ? `<span class="text-emerald-300 font-extrabold">${escapeHtml(target.name)}</span> used their points to <span class="text-white font-extrabold">REVIVE</span>!`
       : `<span class="text-emerald-300 font-extrabold">${escapeHtml(actor.name)}</span> revived <span class="text-white font-extrabold">${escapeHtml(target.name)}</span>!`;
+  } else if (type === 'WINDOW_OPEN') {
+    banner.className = 'transform scale-100 transition-transform duration-300 text-center px-10 py-8 rounded-3xl border-2 border-amber-300 bg-gradient-to-b from-red-900/95 via-magenta/90 to-black/95 shadow-2xl shadow-magenta/50 backdrop-blur-xl';
+    emoji.textContent = '🚨🥊🔥';
+    title.className = 'font-display text-5xl md:text-7xl tracking-wider uppercase text-amber-300 drop-shadow-lg';
+    title.textContent = 'BATTLE WINDOW OPEN!';
+    subtitle.innerHTML = `<span class="text-white font-extrabold">5 MINUTES ON THE CLOCK!</span> Submit your Knockouts & Revives now!`;
   } else {
     banner.className = 'transform scale-100 transition-transform duration-300 text-center px-10 py-7 rounded-3xl border-2 border-magenta bg-gradient-to-b from-magenta/30 via-zinc-950/95 to-black/95 shadow-2xl shadow-magenta/50 backdrop-blur-xl';
     emoji.textContent = '🔥⚡';
@@ -847,7 +1127,7 @@ function triggerBannerFX(type, actor, target, note) {
   setTimeout(() => {
     overlay.classList.remove('opacity-100');
     overlay.classList.add('opacity-0');
-  }, type === 'LINE' ? 1600 : 2500);
+  }, type === 'LINE' ? 1600 : 2600);
 }
 
 function escapeHtml(str) {
@@ -914,7 +1194,6 @@ async function verifyAndUnlockAdmin(pin) {
     }
     return false;
   } catch (err) {
-    // Fallback if offline: default PIN 2026
     if (pin === '2026') {
       state.auth.isAdmin = true;
       state.auth.pin = pin;
@@ -925,14 +1204,56 @@ async function verifyAndUnlockAdmin(pin) {
   }
 }
 
+// Update the 1-second countdown timers without re-rendering full DOM
+function tickBattleWindowTimer() {
+  const open = isBattleWindowOpen();
+  const remSec = getBattleWindowRemainingSeconds();
+  const formatted = formatMMSS(remSec);
+
+  const topBanner = document.getElementById('battle-window-banner');
+  const topTimer = document.getElementById('battle-countdown-timer');
+  const storeTimer = document.getElementById('store-panel-countdown');
+  const adminBadge = document.getElementById('admin-window-timer-badge');
+
+  if (open) {
+    topBanner?.classList.remove('hidden');
+    if (topTimer) topTimer.textContent = formatted;
+    if (storeTimer) storeTimer.textContent = formatted;
+    if (adminBadge) {
+      adminBadge.classList.remove('hidden');
+      adminBadge.textContent = formatted;
+    }
+  } else {
+    topBanner?.classList.add('hidden');
+    adminBadge?.classList.add('hidden');
+    if (state.ui.wasBattleWindowOpen) {
+      state.ui.wasBattleWindowOpen = false;
+      renderAll();
+    }
+  }
+}
+
 // Render Everything
 function renderAll() {
   const computed = getComputedStores();
   const storeById = {};
   computed.forEach(s => { storeById[s.id] = s; });
 
-  // Toggle Admin-only visibility
   const isAdmin = state.auth.isAdmin;
+  const windowOpen = isBattleWindowOpen();
+
+  // Ensure myStoreId defaults or updates
+  const myStore = state.auth.myStoreId ? storeById[state.auth.myStoreId] : null;
+  const pillEmoji = document.getElementById('my-store-pill-emoji');
+  const pillName = document.getElementById('my-store-pill-name');
+  if (myStore) {
+    pillEmoji.textContent = myStore.emoji;
+    pillName.textContent = myStore.name;
+  } else {
+    pillEmoji.textContent = '🏪';
+    pillName.textContent = 'Select Your Store...';
+  }
+
   document.querySelectorAll('.admin-only').forEach(el => {
     if (isAdmin) el.classList.remove('hidden');
     else el.classList.add('hidden');
@@ -946,11 +1267,16 @@ function renderAll() {
     modeBadge.textContent = '🔓 ADMIN EDITOR';
     adminLockIcon.textContent = '🔓';
     adminLockLabel.textContent = 'Exit Admin';
+  } else if (windowOpen) {
+    modeBadge.className = 'px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-widest bg-red-500/30 text-amber-300 border border-amber-400/50 rounded-full animate-pulse';
+    modeBadge.textContent = '🥊 BATTLE MODE LIVE';
+    adminLockIcon.textContent = '🔒';
+    adminLockLabel.textContent = 'Admin';
   } else {
     modeBadge.className = 'px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-widest bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-full';
     modeBadge.textContent = '👀 LIVE VIEWER';
     adminLockIcon.textContent = '🔒';
-    adminLockLabel.textContent = 'Admin Login';
+    adminLockLabel.textContent = 'Admin';
   }
 
   // Announcement Banner
@@ -992,7 +1318,6 @@ function renderAll() {
   document.getElementById('stat-acc').textContent = `$${totalAcc.toLocaleString()}`;
   document.getElementById('stat-net-rev').textContent = `$${totalNetRev.toLocaleString()} NR`;
 
-  // Filter tab counts
   document.getElementById('count-all').textContent = computed.length;
   document.getElementById('count-alive').textContent = aliveStores.length;
   document.getElementById('count-ko').textContent = koStores.length;
@@ -1012,6 +1337,9 @@ function renderAll() {
   document.getElementById('label-revive-cost').textContent = state.settings.reviveCost;
   document.querySelectorAll('.ko-cost-inline').forEach(el => {
     el.textContent = state.settings.koCost;
+  });
+  document.querySelectorAll('.revive-cost-inline').forEach(el => {
+    el.textContent = state.settings.reviveCost;
   });
 
   // Filter and sort stores
@@ -1036,13 +1364,86 @@ function renderAll() {
     }
   });
 
-  renderStoreCards(filtered, storeById, isSoleSurvivor ? aliveStores[0].id : null);
+  renderStoreBattlePanel(computed, myStore, windowOpen);
+  renderAdminWindowControls(windowOpen);
+  renderStoreCards(filtered, storeById, isSoleSurvivor ? aliveStores[0].id : null, windowOpen, myStore);
   renderSheetTable(computed);
   renderAdminSelects(computed);
   renderActivityFeed(storeById);
+  tickBattleWindowTimer();
 }
 
-function renderStoreCards(stores, storeById, soleSurvivorId) {
+function renderStoreBattlePanel(computed, myStore, windowOpen) {
+  const panel = document.getElementById('store-battle-panel');
+  const statusPill = document.getElementById('store-battle-status-pill');
+  const myStoreDisplay = document.getElementById('battle-my-store-display');
+  const myStorePts = document.getElementById('battle-my-store-pts');
+  const closedBox = document.getElementById('store-battle-closed-box');
+  const openBox = document.getElementById('store-battle-open-box');
+  const aliveAttackBox = document.getElementById('store-alive-attack-box');
+  const koReviveBox = document.getElementById('store-ko-revive-box');
+  const targetSelect = document.getElementById('select-store-battle-target');
+
+  if (myStore) {
+    myStoreDisplay.textContent = `${myStore.emoji} ${myStore.name}`;
+    myStorePts.textContent = `${myStore.availablePoints} Available Point${myStore.availablePoints === 1 ? '' : 's'} • ${myStore.isEliminated ? '💀 KNOCKED OUT' : '🟢 IN THE RING'}`;
+  } else {
+    myStoreDisplay.textContent = '⚠️ Click "Change Store" ->';
+    myStorePts.textContent = 'Pick which store you represent!';
+  }
+
+  if (windowOpen) {
+    panel.className = 'bg-gradient-to-b from-red-950/60 via-arena-elevated to-arena-card border-2 border-red-500 rounded-2xl p-5 shadow-2xl shadow-red-600/20 transition-all';
+    statusPill.className = 'text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-red-500/30 text-amber-300 border border-amber-400/50 animate-pulse';
+    statusPill.textContent = '🔥 WINDOW OPEN';
+    closedBox.classList.add('hidden');
+    openBox.classList.remove('hidden');
+
+    if (myStore && myStore.isEliminated && !state.settings.koCanAttack) {
+      aliveAttackBox.classList.add('hidden');
+      koReviveBox.classList.remove('hidden');
+    } else {
+      aliveAttackBox.classList.remove('hidden');
+      if (myStore && myStore.isEliminated) koReviveBox.classList.remove('hidden');
+      else koReviveBox.classList.add('hidden');
+    }
+
+    // Populate rival targets (alive stores other than myStore)
+    const prevTarget = targetSelect.value;
+    const rivalTargets = computed.filter(s => !s.isEliminated && (!myStore || s.id !== myStore.id));
+    targetSelect.innerHTML = rivalTargets.length
+      ? rivalTargets.map(s => `<option value="${s.id}">🎯 ${escapeHtml(s.name)} (${s.availablePoints} pts)</option>`).join('')
+      : `<option value="">No rival stores standing!</option>`;
+    if (prevTarget && rivalTargets.some(s => s.id === prevTarget)) {
+      targetSelect.value = prevTarget;
+    }
+  } else {
+    panel.className = 'bg-gradient-to-b from-arena-elevated to-arena-card border-2 border-arena-border rounded-2xl p-5 shadow-xl transition-all';
+    statusPill.className = 'text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700';
+    statusPill.textContent = '🔒 WINDOW CLOSED';
+    closedBox.classList.remove('hidden');
+    openBox.classList.add('hidden');
+  }
+}
+
+function renderAdminWindowControls(windowOpen) {
+  const startBtn = document.getElementById('btn-admin-start-window');
+  const stopBtn = document.getElementById('btn-admin-stop-window');
+  const label = document.getElementById('admin-window-status-label');
+  if (!startBtn || !stopBtn) return;
+
+  if (windowOpen) {
+    startBtn.textContent = '🔄 Restart 5-Min Timer';
+    stopBtn.classList.remove('hidden');
+    label.textContent = 'LIVE! Stores can submit Knockouts right now.';
+  } else {
+    startBtn.textContent = '🔥 Open 5-Min Knockout Window';
+    stopBtn.classList.add('hidden');
+    label.textContent = 'Open Knockouts for 5 minutes so stores can attack live!';
+  }
+}
+
+function renderStoreCards(stores, storeById, soleSurvivorId, windowOpen, myStore) {
   const grid = document.getElementById('stores-grid');
   const isAdmin = state.auth.isAdmin;
 
@@ -1057,6 +1458,7 @@ function renderStoreCards(stores, storeById, soleSurvivorId) {
 
   grid.innerHTML = stores.map(store => {
     const isChamp = store.id === soleSurvivorId;
+    const isMyStore = myStore && myStore.id === store.id;
     const koByStore = store.eliminatedBy ? storeById[store.eliminatedBy] : null;
     const canAffordKo = store.availablePoints >= state.settings.koCost && (!store.isEliminated || state.settings.koCanAttack);
     const canAffordRevive = store.availablePoints >= state.settings.reviveCost;
@@ -1068,6 +1470,8 @@ function renderStoreCards(stores, storeById, soleSurvivorId) {
           ? 'is-eliminated border-red-500/40'
           : isChamp
           ? 'is-survivor bg-arena-card'
+          : isMyStore
+          ? 'bg-arena-card border-magenta shadow-lg shadow-magenta/10'
           : 'bg-arena-card border-arena-border hover:border-magenta/50'
       }">
         <div>
@@ -1081,10 +1485,11 @@ function renderStoreCards(stores, storeById, soleSurvivorId) {
                 ${store.isEliminated ? '💀' : store.emoji}
               </div>
               <div>
-                <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1.5 flex-wrap">
                   <h3 class="font-display text-2xl tracking-wide leading-none ${store.isEliminated ? 'line-through text-zinc-400' : 'text-white'}">
                     ${escapeHtml(store.name)}
                   </h3>
+                  ${isMyStore ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-magenta text-white font-extrabold uppercase tracking-wider">YOUR STORE</span>' : ''}
                   ${isChamp ? '<span class="text-xs px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold border border-amber-400/40">👑 CHAMP</span>' : ''}
                 </div>
                 <div class="flex items-center gap-2 mt-1 text-[11px] text-zinc-400 font-medium">
@@ -1113,14 +1518,6 @@ function renderStoreCards(stores, storeById, soleSurvivorId) {
                      Knocked out by <strong class="text-white">${koByStore ? escapeHtml(koByStore.name) : 'Rival'}</strong>
                      ${store.eliminatedNote ? `<span class="block text-[11px] text-amber-300 italic mt-0.5">"${escapeHtml(store.eliminatedNote)}"</span>` : ''}
                    </div>
-                   ${
-                     isAdmin
-                       ? `<button onclick="quickSelectAction('${store.id}', 'revive')"
-                                  class="shrink-0 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] uppercase tracking-wider transition shadow">
-                            ⚡ Revive (${state.settings.reviveCost}pt)
-                          </button>`
-                       : ''
-                   }
                  </div>`
               : ''
           }
@@ -1161,12 +1558,12 @@ function renderStoreCards(stores, storeById, soleSurvivorId) {
               <span class="font-mono font-bold text-white">${store.beyondVl} <span class="text-pink-300 text-[10px]">+${store.beyondVlPts}</span></span>
             </div>
 
-            <div class="bg-arena-elevated/70 border border-white/5 rounded-lg px-2.5 py-1.5 flex items-center justify-between" title="Watches & Tablets (1 pt each)">
+            <div class="bg-arena-elevated/70 border border-white/5 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
               <span class="text-zinc-400">BTS <span class="text-[9px] text-zinc-500">(1pt)</span></span>
               <span class="font-mono font-bold text-cyan-300">${store.bts} <span class="text-amber-400 text-[10px]">+${store.btsPts}</span></span>
             </div>
 
-            <div class="bg-arena-elevated/70 border border-white/5 rounded-lg px-2.5 py-1.5 flex items-center justify-between" title="HINT / HSI (2 pts each)">
+            <div class="bg-arena-elevated/70 border border-white/5 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
               <span class="text-zinc-400">HINT <span class="text-[9px] text-zinc-500">(2pt)</span></span>
               <span class="font-mono font-bold text-purple-300">${store.hsi} <span class="text-amber-400 text-[10px]">+${store.hsiPts}</span></span>
             </div>
@@ -1190,7 +1587,18 @@ function renderStoreCards(stores, storeById, soleSurvivorId) {
           </div>
         </div>
 
-        <!-- Admin Action Buttons on Card (Only shown when Admin is logged in) -->
+        <!-- Card Action Footer: Shows Store Battle Target button when 5-Min Window is Open, plus Admin controls if Admin -->
+        ${
+          windowOpen && !store.isEliminated && (!myStore || myStore.id !== store.id)
+            ? `<div class="pt-3 mt-3 border-t border-arena-border/60">
+                 <button onclick="quickSelectAction('${store.id}', 'store_target_ko')"
+                         class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-red-600 to-magenta hover:from-red-500 hover:to-magenta-light text-white text-xs font-extrabold uppercase tracking-wider shadow-lg transition">
+                   🎯 Target ${escapeHtml(store.id)} for Knockout!
+                 </button>
+               </div>`
+            : ''
+        }
+
         ${
           isAdmin
             ? `<div class="flex items-center gap-1.5 pt-3 mt-3 border-t border-arena-border/60">
@@ -1207,7 +1615,7 @@ function renderStoreCards(stores, storeById, soleSurvivorId) {
                                     ? 'bg-gradient-to-r from-red-600 to-magenta text-white shadow'
                                     : 'bg-arena-elevated text-zinc-500 cursor-not-allowed'
                                 }">
-                          🥊 Knock Out
+                          🥊 Admin KO
                         </button>
                         <button onclick="quickSelectAction('${store.id}', 'target')"
                                 class="py-2 px-2.5 rounded-xl bg-arena-elevated hover:bg-red-500/20 border border-arena-border text-zinc-300 hover:text-red-300 text-[11px] font-bold transition">
@@ -1219,7 +1627,7 @@ function renderStoreCards(stores, storeById, soleSurvivorId) {
                                     ? 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white shadow'
                                     : 'bg-arena-elevated text-emerald-300 border border-emerald-500/30'
                                 }">
-                          ⚡ Revive Store
+                          ⚡ Admin Revive
                         </button>`
                  }
                </div>`
@@ -1291,7 +1699,6 @@ function renderAdminSelects(computed) {
   const prevReviveTarget = selectReviveTarget.value;
   const prevRevivePayer = selectRevivePayer.value;
 
-  // Store selector for Manual Line Entry
   selectLineStore.innerHTML = computed
     .map(s => `<option value="${s.id}">${s.emoji} ${escapeHtml(s.name)} (${s.availablePoints} pts avail)</option>`)
     .join('');
@@ -1346,7 +1753,6 @@ function renderActivityFeed(storeById) {
   const undoBtn = document.getElementById('btn-undo-last');
   const isAdmin = state.auth.isAdmin;
 
-  // Combine combatLog and salesLog chronologically
   const combined = [
     ...state.combatLog.map(e => ({ ...e, feedCategory: 'COMBAT' })),
     ...state.salesLog.map(s => ({ ...s, feedCategory: 'SALE' }))
@@ -1440,10 +1846,30 @@ function renderActivityFeed(storeById) {
 document.addEventListener('DOMContentLoaded', () => {
   loadLocalCache();
 
-  // Check URL query ?admin=1 for quick login prompt
+  // Prompt user to pick which store they are on first visit (unless ?admin=1)
   if (window.location.search.includes('admin') && !state.auth.isAdmin) {
     setTimeout(openAdminLoginModal, 300);
+  } else if (!state.auth.myStoreId) {
+    setTimeout(openStorePickerModal, 400);
   }
+
+  // Store Identity Picker modal triggers
+  document.getElementById('btn-change-my-store')?.addEventListener('click', openStorePickerModal);
+  document.getElementById('btn-switch-store-inline')?.addEventListener('click', openStorePickerModal);
+  document.getElementById('btn-close-pick-store')?.addEventListener('click', () => {
+    const m = document.getElementById('modal-pick-store');
+    m.classList.add('hidden');
+    m.classList.remove('flex');
+  });
+
+  // Public Store Battle Window Submit buttons
+  document.getElementById('btn-store-submit-ko')?.addEventListener('click', executeStoreBattleKnockout);
+  document.getElementById('btn-store-submit-revive')?.addEventListener('click', executeStoreBattleRevive);
+
+  // Admin 5-Minute Battle Window buttons
+  document.getElementById('btn-admin-start-window')?.addEventListener('click', startFiveMinuteBattleWindow);
+  document.getElementById('btn-admin-stop-window')?.addEventListener('click', stopBattleWindow);
+  document.getElementById('btn-close-battle-window-top')?.addEventListener('click', stopBattleWindow);
 
   // Filter buttons
   document.querySelectorAll('.filter-tab').forEach(btn => {
@@ -1514,7 +1940,7 @@ document.addEventListener('DOMContentLoaded', () => {
     pushServerState();
   });
 
-  // Execute KO & Revive
+  // Execute KO & Revive (Admin)
   document.getElementById('btn-execute-ko').addEventListener('click', executeKnockout);
   document.getElementById('btn-execute-revive').addEventListener('click', executeRevive);
   document.getElementById('btn-undo-last').addEventListener('click', undoLastAction);
@@ -1606,17 +2032,17 @@ document.addEventListener('DOMContentLoaded', () => {
       state.manualLines = {};
       state.customStores = [];
       state.announcement = { text: '', active: false, updatedAt: null };
+      state.battleWindow = { active: false, startedAt: null, endsAt: null, durationSeconds: 300 };
       modalSettings.classList.add('hidden');
       modalSettings.classList.remove('flex');
       pushServerState();
     }
   });
 
-  // Initial render + Server & Sheet sync + live polling
+  // Initial render + Server & Sheet sync + live polling + 1s countdown ticker
   renderAll();
   syncAll();
-  // Poll shared server state every 8 seconds so viewers see Admin changes in near real-time
-  setInterval(() => fetchServerState(true), 8000);
-  // Poll Google Sheet every 60 seconds
+  setInterval(tickBattleWindowTimer, 1000);
+  setInterval(() => fetchServerState(true), 4000);
   setInterval(syncAll, 60000);
 });

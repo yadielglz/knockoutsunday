@@ -56,11 +56,43 @@
     </div>
   </div>
 
-  <!-- Live Broadcast Announcement Ticker (Visible when Admin posts an announcement) -->
-  <div id="announcement-banner" class="hidden relative z-20 bg-gradient-to-r from-magenta via-red-600 to-orange-500 text-white px-4 py-2.5 shadow-lg border-b border-white/20">
+  <!-- 5-MINUTE BATTLE MODE LIVE COUNTDOWN BANNER (Shows across top when Admin opens Knockouts!) -->
+  <div id="battle-window-banner" class="hidden relative z-30 bg-gradient-to-r from-red-700 via-magenta to-orange-600 text-white px-4 py-3 shadow-2xl border-b-2 border-amber-300">
+    <div class="max-w-[1600px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <span class="text-3xl animate-bounce">🚨🥊</span>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-black/40 text-amber-300 font-mono text-[10px] font-extrabold uppercase tracking-widest animate-pulse">
+              LIVE BATTLE WINDOW OPEN!
+            </span>
+            <span class="font-display text-2xl sm:text-3xl tracking-wider uppercase leading-none">
+              STORES CAN SUBMIT KNOCKOUTS & REVIVES NOW!
+            </span>
+          </div>
+          <p class="text-xs text-pink-100 mt-0.5">
+            Select your store in the Battle Arena on the right or click any target store card before the timer hits zero!
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div class="bg-black/50 border border-amber-300/60 px-4 py-1.5 rounded-2xl text-center">
+          <div class="text-[9px] uppercase tracking-widest text-amber-300 font-bold">Time Remaining</div>
+          <div id="battle-countdown-timer" class="font-mono text-2xl sm:text-3xl font-extrabold text-white tracking-wider">05:00</div>
+        </div>
+        <button id="btn-close-battle-window-top" class="admin-only hidden px-3 py-2 rounded-xl bg-black/40 hover:bg-black/70 border border-white/20 text-xs font-extrabold uppercase tracking-wider transition">
+          ⏹️ End Window
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Broadcast Announcement Ticker -->
+  <div id="announcement-banner" class="hidden relative z-20 bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white px-4 py-2 shadow-lg border-b border-white/20">
     <div class="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
       <div class="flex items-center gap-2.5 text-xs sm:text-sm font-extrabold tracking-wide">
-        <span class="px-2 py-0.5 rounded bg-black/30 uppercase text-[10px] tracking-widest animate-pulse">📢 LIVE UPDATE</span>
+        <span class="px-2 py-0.5 rounded bg-black/30 uppercase text-[10px] tracking-widest">📢 BROADCAST</span>
         <span id="announcement-text">Welcome to Knockout Sunday!</span>
       </div>
       <button id="btn-clear-announcement" class="admin-only hidden text-xs bg-black/30 hover:bg-black/50 px-2.5 py-1 rounded-lg font-bold transition">
@@ -100,8 +132,17 @@
         </div>
       </div>
 
-      <!-- Controls & Sync Status -->
+      <!-- Controls & Identity Bar -->
       <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-end">
+        <!-- Store Identity Pill ("Which Store Are You?") -->
+        <button id="btn-change-my-store" class="flex items-center gap-2 bg-arena-card hover:bg-arena-elevated border border-magenta/40 px-3.5 py-2 rounded-xl text-xs transition" title="Switch which store you represent">
+          <span class="text-base" id="my-store-pill-emoji">🏪</span>
+          <div class="text-left">
+            <div class="text-[9px] uppercase tracking-wider text-zinc-400 font-bold">Your Store</div>
+            <div id="my-store-pill-name" class="font-extrabold text-white">Select Store...</div>
+          </div>
+        </button>
+
         <!-- Sync Pill -->
         <div class="flex items-center gap-2 bg-arena-card border border-arena-border px-3 py-2 rounded-xl text-xs">
           <span id="sync-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
@@ -116,29 +157,22 @@
           </button>
         </div>
 
-        <!-- Sheet Link -->
-        <a href="https://docs.google.com/spreadsheets/d/1hJuUd6UkzfWBeTywVM6Yi5g0BxJodsNLe0XHgt-9nOQ/edit?gid=1896995460#gid=1896995460" target="_blank" rel="noopener"
-           class="flex items-center gap-1.5 bg-arena-card hover:bg-arena-elevated border border-arena-border px-3.5 py-2.5 rounded-xl text-xs font-semibold text-zinc-200 transition">
-          <span>📊</span>
-          <span class="hidden sm:inline">Google Sheet</span>
-        </a>
-
         <!-- Rules & Scoring Modal Button -->
         <button id="btn-open-rules" class="flex items-center gap-1.5 bg-arena-card hover:bg-arena-elevated border border-arena-border px-3.5 py-2.5 rounded-xl text-xs font-semibold text-zinc-200 transition">
           <span>🏆</span>
           <span>Point System</span>
         </button>
 
-        <!-- Admin Settings Button (Only in Admin Mode) -->
+        <!-- Admin Settings Button -->
         <button id="btn-open-settings" class="admin-only hidden flex items-center gap-1.5 bg-arena-card hover:bg-arena-elevated border border-arena-border px-3.5 py-2.5 rounded-xl text-xs font-semibold text-zinc-200 transition">
           <span>⚙️</span>
-          <span>Rules / Reset</span>
+          <span>Settings</span>
         </button>
 
         <!-- Admin Unlock / Lock Button -->
         <button id="btn-admin-toggle" class="flex items-center gap-1.5 bg-gradient-to-r from-magenta/20 to-amber-500/20 hover:from-magenta/40 hover:to-amber-500/40 border border-magenta/50 px-3.5 py-2.5 rounded-xl text-xs font-extrabold text-white transition shadow">
           <span id="admin-lock-icon">🔒</span>
-          <span id="admin-lock-label">Admin Login</span>
+          <span id="admin-lock-label">Admin</span>
         </button>
 
         <!-- Sound Toggle -->
@@ -274,7 +308,7 @@
               <span class="text-lg">📋</span>
               <h3 class="font-display text-2xl tracking-wide text-white">DISTRICT SCOREBOARD & LINE TOTALS</h3>
             </div>
-            <span id="table-helper-text" class="text-xs text-zinc-400">
+            <span class="text-xs text-zinc-400">
               Combines Google Sheet numbers + manually logged Admin lines
             </span>
           </div>
@@ -303,8 +337,86 @@
         </div>
       </div>
 
-      <!-- Right 4 Cols: Admin Command Center + Live Feeds -->
+      <!-- Right 4 Cols: Store Battle Panel + Admin Command Center + Live Feed -->
       <div class="xl:col-span-4 space-y-5 sticky top-5">
+
+        <!-- PUBLIC STORE BATTLE MODE PANEL (Visible to all stores!) -->
+        <div id="store-battle-panel" class="bg-gradient-to-b from-arena-elevated to-arena-card border-2 border-arena-border rounded-2xl p-5 shadow-xl transition-all">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">🥊</span>
+              <h2 class="font-display text-3xl tracking-wider text-white">STORE BATTLE ARENA</h2>
+            </div>
+            <span id="store-battle-status-pill" class="text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
+              🔒 WINDOW CLOSED
+            </span>
+          </div>
+
+          <!-- Selected Store Header Bar -->
+          <div class="p-3 rounded-xl bg-arena-bg border border-arena-border mb-3.5 flex items-center justify-between gap-2">
+            <div>
+              <div class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Fighting As Store:</div>
+              <div id="battle-my-store-display" class="font-display text-2xl text-white tracking-wide">Select Your Store</div>
+              <div id="battle-my-store-pts" class="text-xs font-mono text-amber-400 font-bold">0 Available Points</div>
+            </div>
+            <button id="btn-switch-store-inline" type="button" class="px-3 py-1.5 rounded-lg bg-arena-elevated hover:bg-magenta/20 border border-white/10 text-xs font-bold text-zinc-200 transition">
+              Change Store
+            </button>
+          </div>
+
+          <!-- Closed Window Standby State -->
+          <div id="store-battle-closed-box" class="p-4 rounded-xl bg-arena-bg/70 border border-arena-border text-center space-y-2">
+            <div class="text-3xl">⏳🛡️</div>
+            <div class="font-display text-2xl tracking-wide text-zinc-200">WAITING FOR 5-MINUTE BATTLE WINDOW</div>
+            <p class="text-xs text-zinc-400 leading-relaxed">
+              Keep stacking your <strong class="text-amber-300">VL, Beyond VL, BTS, HINT, and Accessories</strong> points! As soon as the Admin opens the <strong class="text-magenta-light">5-Minute Knockout Window</strong>, this panel unlocks so your store can eliminate rivals!
+            </p>
+          </div>
+
+          <!-- Open Window Active Combat Controls (Unlocks when 5-Min Battle Window is active!) -->
+          <div id="store-battle-open-box" class="hidden space-y-3.5">
+            <div class="p-2.5 rounded-xl bg-red-500/15 border border-red-500/40 flex items-center justify-between">
+              <span class="text-xs font-extrabold text-red-200 uppercase tracking-wider">⏱️ Window Closes In:</span>
+              <span id="store-panel-countdown" class="font-mono text-lg font-extrabold text-amber-300">05:00</span>
+            </div>
+
+            <!-- If store is ALIVE: Show Target selector & Knockout button -->
+            <div id="store-alive-attack-box" class="space-y-3">
+              <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-300 mb-1.5">
+                  🎯 Choose Rival Store to Eliminate (<span class="ko-cost-inline">1</span> pt)
+                </label>
+                <select id="select-store-battle-target" class="w-full bg-arena-bg border border-red-500/50 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white focus:outline-none focus:border-red-400">
+                  <!-- Populated by JS -->
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+                  Battle Cry / Trash Talk (Optional)
+                </label>
+                <input id="input-store-battle-note" type="text" placeholder="e.g. Sent packing by our team! 🥊🔥"
+                       class="w-full bg-arena-bg border border-arena-border rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500" />
+              </div>
+
+              <button id="btn-store-submit-ko" type="button" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-red-600 via-magenta to-orange-500 hover:from-red-500 hover:to-orange-400 text-white font-display text-2xl tracking-wider uppercase shadow-lg shadow-red-600/30 transition transform active:scale-95 flex items-center justify-center gap-2">
+                <span>🥊 SUBMIT KNOCKOUT NOW!</span>
+              </button>
+            </div>
+
+            <!-- If store is KNOCKED OUT: Show Self-Revive button -->
+            <div id="store-ko-revive-box" class="hidden space-y-3 p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/40">
+              <div class="text-xs text-emerald-200 font-semibold">
+                💀 Your store is currently <strong class="text-red-400">KNOCKED OUT</strong>! Spend <strong class="text-white"><span class="revive-cost-inline">1</span> point</strong> to revive back into the ring and start attacking!
+              </div>
+              <input id="input-store-revive-note" type="text" placeholder="Comeback message (e.g. We're back!! 👀🔥)"
+                     class="w-full bg-arena-bg border border-emerald-500/40 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500" />
+              <button id="btn-store-submit-revive" type="button" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-display text-2xl tracking-wider uppercase shadow-lg transition">
+                ⚡ REVIVE OUR STORE NOW!
+              </button>
+            </div>
+          </div>
+        </div>
 
         <!-- ADMIN COMMAND CENTER (Visible ONLY when Admin is unlocked) -->
         <div id="admin-command-panel" class="admin-only hidden bg-gradient-to-b from-arena-elevated to-arena-card border-2 border-magenta rounded-2xl p-5 shadow-2xl shadow-magenta/15">
@@ -317,11 +429,33 @@
               🔓 SERVER ADMIN
             </span>
           </div>
-          <p class="text-xs text-zinc-400 mb-4">
-            Every change you make here saves directly to the server and updates all public viewers live!
-          </p>
 
-          <!-- 3-Tab Admin Mode Selector: 1) Add Lines, 2) Knockout, 3) Revive, 4) Broadcast -->
+          <!-- 5-MINUTE KNOCKOUT WINDOW LAUNCHER BOX -->
+          <div class="p-3.5 rounded-2xl bg-gradient-to-r from-red-950/80 via-magenta/20 to-amber-950/60 border border-magenta/50 mb-4">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div>
+                <div class="text-[11px] font-extrabold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                  <span>⏱️ 5-MINUTE BATTLE WINDOW</span>
+                </div>
+                <p id="admin-window-status-label" class="text-[11px] text-zinc-300">
+                  Open Knockouts for 5 minutes so stores can attack live!
+                </p>
+              </div>
+              <span id="admin-window-timer-badge" class="hidden font-mono text-base font-extrabold px-2.5 py-1 rounded-lg bg-black/50 text-amber-300 border border-amber-400/40">
+                05:00
+              </span>
+            </div>
+            <div class="flex gap-2">
+              <button id="btn-admin-start-window" type="button" class="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-red-600 via-magenta to-orange-500 hover:from-red-500 hover:to-orange-400 text-white font-extrabold text-xs uppercase tracking-wider shadow-lg transition">
+                🔥 Open 5-Min Knockout Window
+              </button>
+              <button id="btn-admin-stop-window" type="button" class="hidden py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-red-600 text-white font-extrabold text-xs uppercase tracking-wider transition">
+                ⏹️ Close Window
+              </button>
+            </div>
+          </div>
+
+          <!-- 4-Tab Admin Mode Selector -->
           <div class="grid grid-cols-4 gap-1.5 p-1 bg-arena-bg rounded-xl border border-arena-border mb-4">
             <button id="tab-mode-lines" class="mode-tab active-lines py-2 px-2 rounded-lg text-[11px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1 transition">
               <span>➕</span>
@@ -425,7 +559,7 @@
                 <input id="input-custom-line-qty" type="number" value="1"
                        class="bg-arena-elevated border border-arena-border rounded-lg px-2.5 py-2 text-xs font-mono font-bold text-white text-center" />
               </div>
-              <input id="input-custom-line-note" type="text" placeholder="Optional rep name or note (e.g. Rep Carlos - 2 VLs + $200 Acc)"
+              <input id="input-custom-line-note" type="text" placeholder="Optional rep name or note"
                      class="w-full bg-arena-elevated border border-arena-border rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-zinc-500" />
               <button id="btn-submit-custom-line" type="button" class="w-full py-2.5 px-3 rounded-lg bg-gradient-to-r from-magenta to-pink-600 hover:from-magenta-light hover:to-pink-500 text-white font-extrabold text-xs uppercase tracking-wider transition shadow">
                 ➕ Log Line to Store & Sync Server
@@ -592,6 +726,23 @@
     </div>
   </div>
 
+  <!-- "WHICH STORE ARE YOU?" IDENTITY PICKER MODAL -->
+  <div id="modal-pick-store" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
+    <div class="bg-arena-card border-2 border-magenta/60 rounded-3xl max-w-2xl w-full p-6 shadow-2xl relative">
+      <button id="btn-close-pick-store" class="absolute top-4 right-4 w-9 h-9 rounded-xl bg-arena-elevated hover:bg-red-500/20 text-zinc-400 hover:text-white flex items-center justify-center">✕</button>
+      <div class="text-center mb-5">
+        <span class="text-5xl">🥊🔥</span>
+        <h2 class="font-display text-4xl sm:text-5xl tracking-wider text-white mt-1">WHICH STORE ARE YOU REPRESENTING?</h2>
+        <p class="text-xs sm:text-sm text-zinc-300 mt-1">
+          Select your store so you're locked & loaded when the <strong class="text-magenta-light">5-Minute Knockout Window</strong> opens!
+        </p>
+      </div>
+      <div id="store-picker-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-[60vh] overflow-y-auto p-1">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </div>
+
   <!-- Admin PIN Login Modal -->
   <div id="modal-admin-login" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
     <div class="bg-arena-card border-2 border-magenta/60 rounded-3xl max-w-sm w-full p-6 shadow-2xl relative">
@@ -599,7 +750,7 @@
       <div class="text-center mb-4">
         <span class="text-4xl">🔐</span>
         <h2 class="font-display text-3xl tracking-wider text-white mt-1">SERVER ADMIN ACCESS</h2>
-        <p class="text-xs text-zinc-400 mt-1">Unlock manual line entry, Knockouts, and Revive controls.</p>
+        <p class="text-xs text-zinc-400 mt-1">Unlock manual line entry, 5-Min Battle Window, and Admin controls.</p>
       </div>
       <form id="form-admin-pin" class="space-y-4">
         <div>

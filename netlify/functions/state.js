@@ -11,11 +11,18 @@ const INITIAL_STATE = {
     active: false,
     updatedAt: null
   },
+  // 5-Minute Live Battle Window State
+  battleWindow: {
+    active: false,
+    startedAt: null,
+    endsAt: null,
+    durationSeconds: 300
+  },
   // Manual adjustments & manually logged sales lines per store
   // { [storeId]: { vl: 0, beyondVl: 0, watches: 0, tablets: 0, hsi: 0, acc: 0, bonusPts: 0 } }
   manualLines: {},
-  // History of individual manual line additions so admin can see/undo them
-  // [ { id, timestamp, storeId, category, qty, amount, points, note } ]
+  // History of individual manual line additions
+  // [ { id, timestamp, storeId, category, qty, note } ]
   salesLog: [],
   // Combat events: [ { id, timestamp, type: 'KO' | 'REVIVE', attackerId, targetId, cost, note } ]
   combatLog: [],
@@ -29,7 +36,6 @@ const INITIAL_STATE = {
   }
 };
 
-// In-memory fallback if Netlify Blobs isn't available in a custom environment
 let memoryFallbackState = JSON.parse(JSON.stringify(INITIAL_STATE));
 
 async function readSharedState() {
@@ -37,7 +43,12 @@ async function readSharedState() {
     const store = getStore({ name: 'knockout-sunday', consistency: 'strong' });
     const data = await store.get('arena-state', { type: 'json' });
     if (data && typeof data === 'object') {
-      return { ...INITIAL_STATE, ...data };
+      return {
+        ...INITIAL_STATE,
+        ...data,
+        battleWindow: { ...INITIAL_STATE.battleWindow, ...(data.battleWindow || {}) },
+        settings: { ...INITIAL_STATE.settings, ...(data.settings || {}) }
+      };
     }
   } catch (err) {
     // Fallback to memory state
@@ -62,6 +73,14 @@ async function writeSharedState(newState) {
   return stamped;
 }
 
+function isBattleWindowCurrentlyOpen(state) {
+  if (!state.battleWindow || !state.battleWindow.active || !state.battleWindow.endsAt) {
+    return false;
+  }
+  const endsMs = new Date(state.battleWindow.endsAt).getTime();
+  return Date.now() < endsMs;
+}
+
 exports.handler = async (event) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -77,6 +96,10 @@ exports.handler = async (event) => {
 
   if (event.httpMethod === 'GET') {
     const currentState = await readSharedState();
+    // Auto-expire battleWindow if timer passed
+    if (currentState.battleWindow?.active && !isBattleWindowCurrentlyOpen(currentState)) {
+      currentState.battleWindow.active = false;
+    }
     return {
       statusCode: 200,
       headers,
@@ -89,7 +112,7 @@ exports.handler = async (event) => {
       const body = JSON.parse(event.body || '{}');
       const providedPin = event.headers['x-admin-pin'] || body.pin || '';
 
-      // Verify PIN endpoint
+      // 1. Verify Admin PIN
       if (body.action === 'verify_pin') {
         const valid = String(providedPin).trim() === String(DEFAULT_PIN).trim();
         return {
@@ -99,6 +122,63 @@ exports.handler = async (event) => {
         };
       }
 
+      // 2. Public Store Combat Action (Allowed ONLY while the 5-Minute Battle Window is open!)
+      if (body.action === 'store_combat') {
+        const currentState = await readSharedState();
+        if (!isBattleWindowCurrentlyOpen(currentState)) {
+          return {
+            statusCode: 403,
+            headers,
+            body: JSON.stringify({ error: 'The 5-Minute Battle Window is currently CLOSED! Wait for Admin to open Knockouts.' })
+          };
+        }
+
+        const evtType = body.type === 'REVIVE' ? 'REVIVE' : 'KO';
+        const attackerId = String(body.attackerId || '').trim();
+        const targetId = String(body.targetId || '').trim();
+        const note = String(body.note || '').trim().slice(0, 120);
+        const cost = evtType === 'REVIVE'
+          ? Number(currentState.settings?.reviveCost || 1)
+          : Number(currentState.settings?.koCost || 1);
+
+        if (!attackerId || !targetId) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ error: 'Both attackerId and targetId are required.' })
+          };
+        }
+        if (evtType === 'KO' && attackerId === targetId) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ error: 'Your store cannot knock itself out!' })
+          };
+        }
+
+        const newEvt = {
+          id: 'evt_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          timestamp: new Date().toISOString(),
+          type: evtType,
+          attackerId,
+          targetId,
+          cost,
+          note,
+          submittedByStore: true
+        };
+
+        currentState.combatLog = Array.isArray(currentState.combatLog) ? currentState.combatLog : [];
+        currentState.combatLog.push(newEvt);
+
+        const saved = await writeSharedState(currentState);
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify(saved)
+        };
+      }
+
+      // 3. Admin Full State Update (Requires PIN)
       if (String(providedPin).trim() !== String(DEFAULT_PIN).trim()) {
         return {
           statusCode: 401,

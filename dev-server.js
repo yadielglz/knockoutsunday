@@ -1,7 +1,7 @@
 /**
  * Local Node.js Development Server for Knockout Sunday
  * Serves static files AND provides the /api/state endpoint backed by state-db.json
- * so local testing matches Netlify's serverless function 100%.
+ * matching Netlify's serverless function (including 5-minute Battle Window & Store Combat).
  */
 
 const http = require('http');
@@ -21,6 +21,12 @@ const INITIAL_STATE = {
     active: false,
     updatedAt: null
   },
+  battleWindow: {
+    active: false,
+    startedAt: null,
+    endsAt: null,
+    durationSeconds: 300
+  },
   manualLines: {},
   salesLog: [],
   combatLog: [],
@@ -37,7 +43,13 @@ function readDb() {
   try {
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, 'utf8');
-      return { ...INITIAL_STATE, ...JSON.parse(raw) };
+      const data = JSON.parse(raw);
+      return {
+        ...INITIAL_STATE,
+        ...data,
+        battleWindow: { ...INITIAL_STATE.battleWindow, ...(data.battleWindow || {}) },
+        settings: { ...INITIAL_STATE.settings, ...(data.settings || {}) }
+      };
     }
   } catch (err) {
     console.warn('Error reading state-db.json:', err.message);
@@ -60,6 +72,13 @@ function writeDb(newState) {
   return stamped;
 }
 
+function isBattleWindowCurrentlyOpen(state) {
+  if (!state.battleWindow || !state.battleWindow.active || !state.battleWindow.endsAt) {
+    return false;
+  }
+  return Date.now() < new Date(state.battleWindow.endsAt).getTime();
+}
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -75,7 +94,6 @@ const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
   const pathname = parsedUrl.pathname;
 
-  // Handle API endpoint (/api/state or /.netlify/functions/state)
   if (pathname === '/api/state' || pathname === '/.netlify/functions/state') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-pin');
@@ -90,6 +108,9 @@ const server = http.createServer((req, res) => {
 
     if (req.method === 'GET') {
       const state = readDb();
+      if (state.battleWindow?.active && !isBattleWindowCurrentlyOpen(state)) {
+        state.battleWindow.active = false;
+      }
       res.writeHead(200);
       return res.end(JSON.stringify(state));
     }
@@ -106,6 +127,43 @@ const server = http.createServer((req, res) => {
             const valid = String(providedPin).trim() === String(ADMIN_PIN).trim();
             res.writeHead(valid ? 200 : 401);
             return res.end(JSON.stringify({ ok: valid, error: valid ? null : 'Invalid Admin PIN' }));
+          }
+
+          if (parsed.action === 'store_combat') {
+            const currentState = readDb();
+            if (!isBattleWindowCurrentlyOpen(currentState)) {
+              res.writeHead(403);
+              return res.end(JSON.stringify({ error: 'The 5-Minute Battle Window is currently CLOSED!' }));
+            }
+
+            const evtType = parsed.type === 'REVIVE' ? 'REVIVE' : 'KO';
+            const attackerId = String(parsed.attackerId || '').trim();
+            const targetId = String(parsed.targetId || '').trim();
+            const note = String(parsed.note || '').trim().slice(0, 120);
+            const cost = evtType === 'REVIVE'
+              ? Number(currentState.settings?.reviveCost || 1)
+              : Number(currentState.settings?.koCost || 1);
+
+            if (!attackerId || !targetId) {
+              res.writeHead(400);
+              return res.end(JSON.stringify({ error: 'Both attackerId and targetId are required.' }));
+            }
+
+            currentState.combatLog = Array.isArray(currentState.combatLog) ? currentState.combatLog : [];
+            currentState.combatLog.push({
+              id: 'evt_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+              timestamp: new Date().toISOString(),
+              type: evtType,
+              attackerId,
+              targetId,
+              cost,
+              note,
+              submittedByStore: true
+            });
+
+            const saved = writeDb(currentState);
+            res.writeHead(200);
+            return res.end(JSON.stringify(saved));
           }
 
           if (String(providedPin).trim() !== String(ADMIN_PIN).trim()) {
@@ -125,7 +183,6 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // Serve static files
   let safePath = pathname === '/' ? '/index.html' : pathname;
   const filePath = path.join(__dirname, path.normalize(safePath).replace(/^(\.\.[\/\\])+/, ''));
 

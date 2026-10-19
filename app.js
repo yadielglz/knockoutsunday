@@ -526,6 +526,8 @@ function renderStoreCards(storesList, evt, sched, nowMs) {
     const isQualifier = (evt.dailyQualifiers || []).includes(store.id);
     const attacksUsed = isRoundOpen ? Number(activeRound.attacksByStore?.[store.id] || 0) : 0;
 
+    const sheetReport = serverState.latestSheetReport;
+    const sheetRow = sheetReport?.rows?.find(r => r.id === store.id);
     // Deflection status
     const deflectActive = isRoundOpen && Boolean(activeRound.deflectionSnapshot?.[store.id]) && store.deflection.activeForRoundId === activeRound.roundId && store.deflection.brokenInRoundId !== activeRound.roundId;
     const deflectBroken = isRoundOpen && store.deflection.brokenInRoundId === activeRound.roundId;
@@ -615,6 +617,12 @@ function renderStoreCards(storesList, evt, sched, nowMs) {
             </span>
           </div>
 
+          ${sheetRow ? `<div class="text-[11px] text-cyan-300 border border-cyan-500/30 rounded-lg p-2 mb-3">
+            <strong>Google Sheet · ${escapeHtml(sheetReport.dateKey)}</strong><br>
+            VL ${sheetRow.vl} · BTS ${sheetRow.bts} · HINT ${sheetRow.hsi} · ACC $${(sheetRow.accCents/100).toFixed(2)}<br>
+            Sheet earned: ${Number(sheetRow.sheetEarnedPoints || 0).toLocaleString()} pts<br>
+            ${sheetReport.status === 'PENDING_CUTOFF' ? 'Imported · combat points follow sales cutoffs' : 'Saved to reporting event/week · combat results unchanged'}
+          </div>` : ''}
           <!-- Primary Balances Box -->
           <div class="grid grid-cols-4 gap-1.5 p-2.5 rounded-xl bg-arena-bg/90 border border-arena-border mb-3 text-center">
             <div class="border-r border-arena-border pr-1">

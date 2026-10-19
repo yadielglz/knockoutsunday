@@ -8,13 +8,19 @@ const { fetchSheetCsvFromGoogle } = require('../../lib/api-handler');
 export default async () => {
   const nowMs = Date.now();
   let rows = null;
+  let sheetError = null;
   try {
     const text = await fetchSheetCsvFromGoogle(
       'https://docs.google.com/spreadsheets/d/1hJuUd6UkzfWBeTywVM6Yi5g0BxJodsNLe0XHgt-9nOQ/edit?gid=1896995460'
     );
     rows = parseGoogleSheetCSV(text);
-  } catch { /* Advance game boundaries even if the sheet is unavailable. */ }
+    if (!rows.length) throw new Error('No store rows found in Google Sheet response.');
+  } catch (error) { sheetError = error.message; }
   await transactState((state, txNowMs) => {
+    if (sheetError) {
+      state.sheetSyncMeta.lastAttemptAtMs = txNowMs;
+      state.sheetSyncMeta.lastError = sheetError;
+    }
     if (rows?.length) reconcileSheetSnapshot(state, rows, txNowMs);
     processScheduledBoundaries(state, txNowMs);
   }, { nowMs });

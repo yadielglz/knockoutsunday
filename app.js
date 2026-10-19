@@ -11,6 +11,9 @@ const STORE_AUTH_KEY = 'knockout_blitz_store_auth';
 
 const ROSTER_ORDER = ['843D', '693D', '561D', '5383', '769D', '5733', '582D', '892E', '697D'];
 
+let gameZone = 'live';
+let zoneGeneration = 0;
+let pendingStateGeneration = null;
 let serverState = null;
 let serverClockOffsetMs = 0;
 
@@ -22,7 +25,7 @@ let clientSession = {
   storeToken: '',
   soundEnabled: true,
   activeView: 'arena', // 'arena' | 'weekly' | 'ledger'
-  activeAdminTab: 'sales', // 'sales' | 'lifecycle' | 'audit' | 'auth'
+  activeAdminTab: 'lifecycle', // 'sales' | 'lifecycle' | 'audit' | 'auth'
   filter: 'all',
   sortBy: 'available_desc',
   lastCombatActionId: null
@@ -77,6 +80,7 @@ const SoundFX = {
 };
 
 function getServerNowMs() {
+  if (gameZone === 'sandbox' && serverState?.sandboxClockMs) return serverState.sandboxClockMs;
   return Date.now() + serverClockOffsetMs;
 }
 
@@ -151,44 +155,55 @@ function loadClientSession() {
     if (savedAdmin) {
       const parsed = JSON.parse(savedAdmin);
       clientSession.isAdmin = true;
+      clearStoreSession();
       clientSession.adminToken = parsed.adminToken || '';
       clientSession.adminPin = parsed.adminPin || '';
     }
     const savedStore = localStorage.getItem(STORE_AUTH_KEY) || sessionStorage.getItem(STORE_AUTH_KEY);
     if (savedStore) {
       const parsed = JSON.parse(savedStore);
-      clientSession.storeId = parsed.storeId || '843D';
+      clientSession.storeId = parsed.storeId || '';
       clientSession.storeToken = parsed.storeToken || '';
     } else {
-      clientSession.storeId = '843D';
+      clientSession.storeId = '';
     }
+    if (clientSession.isAdmin) clearStoreSession();
     const cachedView = localStorage.getItem(CACHE_KEY);
     if (cachedView) {
       serverState = JSON.parse(cachedView);
     }
   } catch (e) {
-    if (!clientSession.storeId) clientSession.storeId = '843D';
+    if (!clientSession.storeId) clientSession.storeId = '';
   }
 }
 
 // Fetch authoritative state from /api/state
 async function fetchAuthoritativeState() {
+  if (pendingStateGeneration === zoneGeneration) return;
+  const requestGeneration = zoneGeneration;
+  pendingStateGeneration = requestGeneration;
   const syncDot = document.getElementById('sync-dot');
   const syncStatusText = document.getElementById('sync-status-text');
   const syncIcon = document.getElementById('sync-icon');
 
   syncIcon?.classList.add('animate-spin');
   try {
-    const res = await fetch('/api/state', { cache: 'no-store' });
+    const generation = zoneGeneration;
+    const res = await fetch('/api/state', { cache: 'no-store', headers: gameHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    if (generation !== zoneGeneration) return;
     applyServerState(data);
     syncDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400';
-    syncStatusText.textContent = 'Authoritative DB Live';
+    syncStatusText.textContent = gameZone === 'sandbox' ? 'Test DB • Clock paused' : 'Authoritative DB Live';
+    return true;
   } catch (err) {
+    if (requestGeneration !== zoneGeneration) return;
     syncDot.className = 'w-2.5 h-2.5 rounded-full bg-red-400';
     syncStatusText.textContent = 'Server Offline (Read-Only)';
+    return false;
   } finally {
+    if (pendingStateGeneration === requestGeneration) pendingStateGeneration = null;
     syncIcon?.classList.remove('animate-spin');
   }
 }
@@ -207,7 +222,7 @@ function applyServerState(data) {
 
   serverState = data;
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+    if (gameZone === 'live') localStorage.setItem(CACHE_KEY, JSON.stringify(data));
   } catch (e) {}
 
   if (latestCombat && prevLastId && latestCombat.actionId !== prevLastId) {
@@ -236,7 +251,10 @@ function applyServerState(data) {
 
 // Send POST action to /api/state (Never mutates combat state locally on failure!)
 async function postServerAction(payload) {
-  const headers = { 'Content-Type': 'application/json' };
+  if (clientSession.isAdmin && payload.action.startsWith('store_')) throw new Error('Admin mode is neutral. Use Test Zone.');
+  const generation = zoneGeneration;
+  const headers = gameHeaders();
+  headers['Content-Type'] = 'application/json';
   if (clientSession.adminToken) headers['x-admin-token'] = clientSession.adminToken;
   if (clientSession.adminPin) headers['x-admin-pin'] = clientSession.adminPin;
   if (clientSession.storeToken) headers['x-store-token'] = clientSession.storeToken;
@@ -251,7 +269,7 @@ async function postServerAction(payload) {
   if (!res.ok) {
     throw new Error(data.error || `Server rejected action (HTTP ${res.status})`);
   }
-  applyServerState(data);
+  if (generation === zoneGeneration && data.currentEvent) applyServerState(data);
   return data;
 }
 
@@ -400,6 +418,7 @@ function updateTelemetryTick() {
 let previousWorkspaceAdmin = null;
 function updateWorkspaceLayout() {
   const admin = clientSession.isAdmin;
+  document.body.classList.toggle('admin-mode', admin);
   if (previousWorkspaceAdmin !== admin) {
     clientSession.activeView = admin ? 'admin' : 'arena';
     previousWorkspaceAdmin = admin;
@@ -439,7 +458,7 @@ function renderAll() {
     POWER_PHASE: `⚡ POWER HOURS (${sched?.powerPhaseDurationHours || 3}H)`,
     CLOSED: evt.status === 'ENDED_DRAW' ? '⚠️ ENDED (DRAW)' : '🏁 DAILY EVENT CLOSED'
   };
-  phaseBadge.textContent = phaseLabelMap[evt.phase] || evt.phase;
+  phaseBadge.textContent = (gameZone === 'sandbox' ? '🧪 TEST • ' : '') + (phaseLabelMap[evt.phase] || evt.phase);
 
   // Sheet Freshness
   const syncTimeText = document.getElementById('sync-time-text');
@@ -460,13 +479,14 @@ function renderAll() {
   updateWorkspaceLayout();
 
   // Store Selector Header Pill
-  if (!clientSession.storeId || !storesMap[clientSession.storeId]) {
-    clientSession.storeId = ROSTER_ORDER[0];
-  }
+  if (clientSession.isAdmin) clearStoreSession();
   const myStore = storesMap[clientSession.storeId] || null;
   document.getElementById('my-store-pill-emoji').textContent = myStore ? myStore.emoji : '🏪';
   document.getElementById('my-store-pill-name').textContent = myStore ? myStore.name : 'Select Store...';
-  document.getElementById('my-store-auth-label').textContent = 'Playing As Store';
+  document.getElementById('my-store-auth-label').textContent = isAdmin ? 'Neutral administrator' : 'Playing As Store';
+  document.getElementById('my-store-pill-name').textContent = isAdmin ? 'Admin Desk' : (myStore?.name || 'Select Store…');
+  document.getElementById('btn-change-my-store').disabled = isAdmin;
+  renderAdminControls();
 
   // Standing count
   const standingStores = storesList.filter(s => s.status === 'STANDING');
@@ -515,10 +535,10 @@ function renderAll() {
     tieBanner.classList.add('hidden');
   }
 
-  renderStoreCards(storesList, evt, sched, nowMs);
-  renderWeeklyStandingsView();
-  renderFullLedgerAndScheduleView(storesList, evt, sched, nowMs);
-  renderStoreCombatDeck(storesList, myStore, evt, sched, nowMs);
+  if (clientSession.activeView === 'arena') renderStoreCards(storesList, evt, sched, nowMs);
+  if (clientSession.activeView === 'weekly') renderWeeklyStandingsView();
+  if (clientSession.activeView === 'ledger') renderFullLedgerAndScheduleView(storesList, evt, sched, nowMs);
+  if (!isAdmin) renderStoreCombatDeck(storesList, myStore, evt, sched, nowMs);
   if (isAdmin) {
     renderAdminPanel(storesList, evt, sched, nowMs);
   }
@@ -864,7 +884,7 @@ function renderStoreCombatDeck(storesList, myStore, evt, sched, nowMs) {
   const reviveCostLabel = document.getElementById('label-revive-cost-btn');
 
   if (myStoreSelect) {
-    myStoreSelect.innerHTML = storesList
+    myStoreSelect.innerHTML = '<option value="">Select your store…</option>' + storesList
       .map(s => `<option value="${s.id}">${s.emoji} ${escapeHtml(s.name)} (${formatBpDisplay(s.availableBp)} avail pts • ${s.status})</option>`)
       .join('');
     if (myStore) {
@@ -1240,7 +1260,7 @@ function exportShareablePngReport() {
   ctx.fillRect(0, 0, 1200, 8);
   ctx.fillStyle = '#FFFFFF';
   ctx.font = 'bold 42px sans-serif';
-  ctx.fillText('KNOCKOUT BLITZ — PHOENIX DISTRICT STATUS REPORT', 40, 62);
+  ctx.fillText(gameZone === 'sandbox' ? 'TEST ZONE — KNOCKOUT BLITZ STATUS' : 'KNOCKOUT BLITZ — PHOENIX DISTRICT STATUS REPORT', 40, 62);
 
   ctx.fillStyle = '#FBBF24';
   ctx.font = 'bold 18px monospace';
@@ -1305,7 +1325,7 @@ function exportShareablePngReport() {
   });
 
   const link = document.createElement('a');
-  link.download = `knockout-blitz-report-${evt?.dateKey || 'live'}.png`;
+  link.download = `knockout-blitz-${gameZone}-report-${evt?.dateKey || 'live'}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
 }
@@ -1316,8 +1336,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (serverState) renderAll();
   fetchAuthoritativeState();
 
-  setInterval(updateTelemetryTick, 1000);
-  setInterval(fetchAuthoritativeState, 4000);
+  setInterval(() => { if (!document.hidden) updateTelemetryTick(); }, 1000);
+  setInterval(() => { if (!document.hidden) fetchAuthoritativeState(); }, 4000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchAuthoritativeState(); });
 
   // View Switcher Tabs
   document.querySelectorAll('.view-tab').forEach(btn => {
@@ -1325,7 +1346,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const view = btn.getAttribute('data-view');
       if (view === 'admin' && !clientSession.isAdmin) return;
       clientSession.activeView = view;
-      updateWorkspaceLayout();
+      renderAll();
     });
   });
 
@@ -1339,7 +1360,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.classList.add('active-lines');
       btn.classList.remove('text-zinc-400');
       const tab = btn.getAttribute('data-admintab');
-      ['sales', 'lifecycle', 'audit', 'auth'].forEach(t => {
+      ['sales', 'lifecycle', 'audit', 'auth', 'test', 'tournament'].forEach(t => {
         document.getElementById(`admintab-${t}`)?.classList.toggle('hidden', t !== tab);
       });
     });
@@ -1358,7 +1379,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Direct Store Selector in Combat Deck & Modal (No Store Login Required)
   const setPlayingStore = (storeId) => {
-    if (!storeId) return;
+    if (!storeId || clientSession.isAdmin) return;
     clientSession.storeId = storeId;
     clientSession.storeToken = '';
     try {
@@ -1373,6 +1394,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const openStoreModal = () => {
+    if (clientSession.isAdmin) return;
     const modal = document.getElementById('modal-pick-store');
     const sel = document.getElementById('select-auth-store-id');
     if (sel && serverState?.stores) {
@@ -1450,11 +1472,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // Admin Login / Logout
   document.getElementById('btn-admin-toggle')?.addEventListener('click', () => {
     if (clientSession.isAdmin) {
+      gameZone = 'live';
+      zoneGeneration++;
+      serverState = null;
+      clearStoreSession();
       clientSession.isAdmin = false;
       clientSession.adminToken = '';
       clientSession.adminPin = '';
       sessionStorage.removeItem(ADMIN_TOKEN_KEY);
-      renderAll();
+      document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+      updateWorkspaceLayout();
+      fetchAuthoritativeState();
     } else {
       const m = document.getElementById('modal-admin-login');
       document.getElementById('admin-pin-error').classList.add('hidden');
@@ -1488,6 +1516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       clientSession.isAdmin = true;
+      clearStoreSession();
       clientSession.adminToken = data.adminToken || '';
       clientSession.adminPin = pin;
       sessionStorage.setItem(ADMIN_TOKEN_KEY, JSON.stringify({ adminToken: clientSession.adminToken, adminPin: pin }));
@@ -1665,3 +1694,83 @@ document.addEventListener('DOMContentLoaded', () => {
     soundBtn.textContent = clientSession.soundEnabled ? '🔊' : '🔇';
   });
 });
+
+
+function clearStoreSession() {
+  clientSession.storeId = '';
+  clientSession.storeToken = '';
+  try {
+    localStorage.removeItem(STORE_AUTH_KEY);
+    sessionStorage.removeItem(STORE_AUTH_KEY);
+  } catch (error) {}
+}
+function gameHeaders() {
+  const headers = {};
+  if (clientSession.adminToken) headers['x-admin-token'] = clientSession.adminToken;
+  if (clientSession.adminPin) headers['x-admin-pin'] = clientSession.adminPin;
+  if (gameZone === 'sandbox') headers['x-game-zone'] = 'sandbox';
+  return headers;
+}
+async function switchGameZone(zone) {
+  if (!clientSession.isAdmin || !['live','sandbox'].includes(zone)) return;
+  const previousZone = gameZone;
+  gameZone = zone;
+  zoneGeneration++;
+  clientSession.lastCombatActionId = null;
+  document.getElementById('game-zone-banner').textContent = zone === 'sandbox' ? 'TEST ZONE • Loading isolated database…' : 'LIVE GAME';
+  const panel = document.getElementById('admin-command-panel');
+  panel.inert = true;
+  try {
+    if (!await fetchAuthoritativeState()) {
+      gameZone = previousZone;
+      zoneGeneration++;
+      renderAll();
+      document.getElementById('admin-control-feedback').textContent = 'Could not switch zones. Check the connection and try again.';
+    }
+  } finally { panel.inert = false; }
+}
+function renderAdminControls() {
+  const test = gameZone === 'sandbox';
+  const banner = document.getElementById('game-zone-banner');
+  banner.classList.toggle('hidden', !clientSession.isAdmin);
+  banner.textContent = test ? `TEST ZONE • ${formatEtClock(serverState.serverNowMs)} ET • Clock advances only when you choose. Live game unaffected.` : 'LIVE GAME • Neutral admin • No store selected';
+  banner.classList.toggle('test-zone-active', test);
+  document.getElementById('admin-import-status').textContent = serverState.sheetImportsPaused ? 'Sheet imports paused. Existing source totals may return when imports resume.' : 'Automatic Google Sheet imports enabled.';
+  document.getElementById('btn-resume-imports').disabled = test || !serverState.sheetImportsPaused;
+  document.getElementById('test-controls').classList.toggle('hidden', !test);
+  document.getElementById('btn-enter-test').textContent = test ? 'Return to live game' : 'Enter isolated Test Zone';
+  document.getElementById('test-zone-status').textContent = test ? 'All admin tabs now operate on test data. Sample stores start with 5,000–9,000 points. Game rules still apply.' : 'Test rounds, sales, attacks, revivals, and shields without changing the live game. The test clock stays frozen until advanced.';
+  for (const id of ['test-actor','test-target']) {
+    const el = document.getElementById(id);
+    const previous = el.value;
+    el.innerHTML = ROSTER_ORDER.map(id => `<option value="${id}">${escapeHtml(serverState.stores[id]?.name || id)}</option>`).join('');
+    el.value = previous || (id === 'test-target' ? '693D' : '843D');
+  }
+}
+async function adminControl(action, extra = {}) {
+  const status = document.getElementById('admin-control-feedback');
+  try {
+    status.textContent = 'Working…';
+    await postServerAction({ action, ...extra });
+    status.textContent = 'Saved successfully.';
+  } catch (error) { status.textContent = error.message; }
+}
+async function confirmAdminReset(action, phrase) {
+  const confirmation = document.getElementById('admin-reset-confirmation').value.trim();
+  if (confirmation !== phrase) {
+    document.getElementById('admin-control-feedback').textContent = `Type ${phrase} in the confirmation field first.`;
+    return;
+  }
+  await adminControl(action, { confirmation });
+  document.getElementById('admin-reset-confirmation').value = '';
+}
+async function downloadAdminBackup() {
+  try {
+    const data = await postServerAction({ action:'admin_export_backup' });
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data.snapshot,null,2)], {type:'application/json'}));
+    const link = document.createElement('a');
+    link.href = url; link.download = `knockout-blitz-${gameZone}-${data.backupId}.json`;
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch(error) { document.getElementById('admin-control-feedback').textContent = error.message; }
+}

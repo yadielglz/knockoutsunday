@@ -106,3 +106,18 @@ test('scheduled native function persists work when the sheet is unavailable', as
     assert.equal(response.status, 200);
   } finally { global.fetch = originalFetch; }
 });
+
+test('native sandbox uses separate Blobs namespace and leaves live state untouched', async () => {
+  const invocation = event();
+  const liveBefore = structuredClone(objects.get('knockout-blitz-db/arena-state-v2'));
+  const response = await handler(new Request(invocation.url, {
+    method:'POST', headers:{'Content-Type':'application/json','x-admin-pin':require('../lib/auth').getConfiguredAdminPin(),'x-game-zone':'sandbox'},
+    body:JSON.stringify({action:'admin_test_seed',scenario:'battle'})
+  }));
+  assert.equal(response.status,200);
+  const data = await response.json();
+  assert.equal(data.gameZone,'sandbox');
+  assert.ok(objects.has('knockout-blitz-sandbox/arena-state-v2'));
+  assert.deepEqual(objects.get('knockout-blitz-db/arena-state-v2'),liveBefore);
+  assert.equal(objects.has('knockout-blitz-sandbox/arena-state-v1-backup'),false);
+});

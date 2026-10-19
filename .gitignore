@@ -2,3 +2,7 @@ node_modules/
 .netlify/
 state-db.json
 .DS_Store
+
+state-db.json.sandbox
+state-db.json.backups/
+state-db.json.sandbox.backups/

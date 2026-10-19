@@ -78,3 +78,39 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #E20074;
 }
+
+/* Admin workspace: touch-sized controls and contained layouts on every screen. */
+.admin-control-button { min-height:44px; padding:10px 14px; border:1px solid #52525b; border-radius:12px; background:#27272a; color:#fafafa; font-size:14px; font-weight:700; }
+.admin-control-button:hover { background:#3f3f46; }
+.admin-control-button:disabled { opacity:.45; cursor:not-allowed; }
+.admin-control-button.danger { border-color:#f87171; color:#fecaca; }
+.admin-control-input { display:block; width:100%; min-height:44px; margin-top:6px; padding:10px; border:1px solid #52525b; border-radius:10px; background:#18181b; color:white; font-size:16px; }
+.test-zone-active { border-color:#c084fc!important; background:#581c8733!important; color:#e9d5ff; }
+#admin-workspace-slot, #admin-command-panel, main > *, .grid > * { min-width:0; }
+#admin-command-panel button, #admin-command-panel select, #admin-command-panel input { min-height:44px; }
+#admin-command-panel [role="status"] { overflow-wrap:anywhere; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline:2px solid #e20074; outline-offset:3px; }
+@media (max-width:1279px) { .sticky { position:static; } }
+@media (max-width:767px) {
+  #admin-command-panel { padding:14px; }
+  input, select, textarea { font-size:16px!important; }
+  button { touch-action:manipulation; }
+  .view-tab { min-height:44px; white-space:nowrap; }
+  #admin-command-panel .admin-tab { font-size:11px; }
+  #game-zone-banner { font-size:12px; }
+  h1 { overflow-wrap:anywhere; }
+  .overflow-x-auto { max-width:100%; -webkit-overflow-scrolling:touch; }
+}
+@media (prefers-reduced-motion:reduce) { *, *::before, *::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+/* Keep the control desk near the top on smaller admin screens. */
+@media (max-width:1023px) {
+  body.admin-mode #game-telemetry > div:nth-child(3),
+  body.admin-mode #game-telemetry > div:nth-child(4),
+  body.admin-mode #game-telemetry > div:nth-child(5) { display:none; }
+  body.admin-mode header { gap:10px; padding-bottom:12px; margin-bottom:12px; }
+  body.admin-mode header h1 { font-size:30px; }
+  body.admin-mode #schedule-summary-line { display:none; }
+  body.admin-mode #game-telemetry { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+  body.admin-mode #game-telemetry > div { padding:8px; }
+  body.admin-mode #game-telemetry .font-mono { font-size:16px; }
+}

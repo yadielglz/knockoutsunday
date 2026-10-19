@@ -157,7 +157,7 @@
     </header>
 
     <!-- Live Schedule & Countdown Telemetry Bar -->
-    <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+    <section id="game-telemetry" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
       <div class="bg-arena-card border border-arena-border rounded-2xl p-3 flex flex-col justify-between">
         <div class="flex items-center justify-between">
           <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Next Battle Round</span>
@@ -498,15 +498,64 @@
             </span>
           </div>
 
+          <div id="game-zone-banner" class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 mb-4 text-sm font-bold" role="status">LIVE GAME • Neutral admin</div>
+          <p id="admin-control-feedback" class="text-sm text-amber-200 mb-3" role="status" aria-live="polite"></p>
           <!-- Admin Sub-Tabs -->
-          <div class="grid grid-cols-3 gap-1 p-1 bg-arena-bg rounded-xl border border-arena-border mb-4 text-[10px] font-extrabold uppercase">
-            <button type="button" data-admintab="sales" class="admin-tab active-lines py-2 rounded-lg transition">➕ Log Sales</button>
-            <button type="button" data-admintab="lifecycle" class="admin-tab py-2 rounded-lg text-zinc-400 hover:text-white transition">⏱️ Event/Rounds</button>
+          <div class="admin-subtabs grid grid-cols-2 sm:grid-cols-3 gap-1 p-1 bg-arena-bg rounded-xl border border-arena-border mb-4 text-[10px] font-extrabold uppercase">
+            <button type="button" data-admintab="test" class="admin-tab py-2 rounded-lg text-zinc-400">🧪 Test Zone</button>
+            <button type="button" data-admintab="tournament" class="admin-tab py-2 rounded-lg text-zinc-400">🎮 Tournament</button>
+            <button type="button" data-admintab="sales" class="admin-tab text-zinc-400 py-2 rounded-lg transition">➕ Log Sales</button>
+            <button type="button" data-admintab="lifecycle" class="admin-tab active-lines py-2 rounded-lg text-zinc-400 hover:text-white transition">⏱️ Event/Rounds</button>
             <button type="button" data-admintab="audit" class="admin-tab py-2 rounded-lg text-zinc-400 hover:text-white transition">⚖️ Ties/Audit</button>
           </div>
 
+            <!-- extended admin tools -->
+          <div id="admintab-test" class="hidden space-y-4">
+            <h3 class="text-xl font-bold">Test Zone</h3>
+            <p id="test-zone-status" class="text-sm text-zinc-300"></p>
+            <button id="btn-enter-test" class="admin-control-button" onclick="switchGameZone(gameZone === 'sandbox' ? 'live' : 'sandbox')">Enter isolated Test Zone</button>
+            <div id="test-controls" class="hidden space-y-4">
+              <label class="block text-sm">Reset test scenario
+                <select id="test-scenario" class="admin-control-input"><option value="opening">Event opening</option><option value="battle">Round open (:10)</option><option value="deflection">Deflection unlocked + round open</option><option value="power">Power Hours (between rounds)</option></select>
+              </label>
+              <button class="admin-control-button" onclick="adminControl('admin_test_seed',{scenario:document.getElementById('test-scenario').value})">Load fresh sample stores</button>
+              <div class="flex flex-wrap gap-2">
+                <button class="admin-control-button" onclick="adminControl('admin_test_advance',{minutes:1})">+1 minute</button>
+                <button class="admin-control-button" onclick="adminControl('admin_test_advance',{minutes:5})">+5 minutes</button>
+                <button class="admin-control-button" onclick="adminControl('admin_test_advance',{minutes:20})">+20 minutes</button>
+                <button class="admin-control-button" onclick="adminControl('admin_test_advance',{minutes:60})">+1 hour</button>
+              </div>
+              <div class="grid sm:grid-cols-2 gap-3"><label>Acting store<select id="test-actor" class="admin-control-input"></select></label><label>Target store<select id="test-target" class="admin-control-input"></select></label></div>
+              <label class="block">Attack type<select id="test-attack-mode" class="admin-control-input"><option value="NORMAL">Normal</option><option value="SIMPLE">Simple</option><option value="BREAKER">Break deflection</option></select></label>
+              <div class="flex flex-wrap gap-2">
+                <button class="admin-control-button" onclick="adminControl('admin_test_combat',{kind:'attack',actorId:document.getElementById('test-actor').value,targetId:document.getElementById('test-target').value,attackMode:document.getElementById('test-attack-mode').value,idempotencyKey:makeIdempotencyKey('test')})">Simulate attack</button>
+                <button class="admin-control-button" onclick="adminControl('admin_test_combat',{kind:'revive',actorId:document.getElementById('test-actor').value,idempotencyKey:makeIdempotencyKey('test')})">Simulate revival</button>
+                <button class="admin-control-button" onclick="adminControl('admin_test_combat',{kind:'shield',actorId:document.getElementById('test-actor').value,idempotencyKey:makeIdempotencyKey('test')})">Purchase test shield</button>
+              </div>
+              <p class="text-sm text-zinc-400">Use Log Sales to add sample sales and Event/Rounds to pause or stop the test event. View Daily Arena to inspect test store cards.</p>
+            </div>
+          </div>
+          <div id="admintab-tournament" class="hidden space-y-4">
+            <h3 class="text-xl font-bold">Tournament controls</h3>
+            <p class="text-sm text-zinc-300">These controls affect the zone shown above. Each reset saves a recoverable server backup first. Download a copy before making changes.</p>
+            <button class="admin-control-button" onclick="downloadAdminBackup()">Save numbers / download full backup</button>
+            <div class="rounded-xl border border-arena-border p-3 space-y-3">
+              <p class="text-sm"><strong>Reset combat:</strong> Restore all nine stores and their earned point balances. Keep sales, pending sales, and weekly history. Current event timing and results stay as recorded.</p>
+              <p class="text-sm"><strong>New tournament:</strong> Archive the current week and start fresh with zero scores.</p>
+              <p class="text-sm"><strong>Clear game database:</strong> Remove active sales, scores, combat, and weekly history. Keep the official roster, access codes, and enabled days. Saved backups remain available.</p>
+              <p class="text-sm text-amber-200">New tournament and clear database pause sheet imports. Resuming imports can bring existing Google Sheet totals back.</p>
+              <label class="block text-sm">Type the exact action phrase below<input id="admin-reset-confirmation" class="admin-control-input" autocomplete="off" placeholder="RESET COMBAT / NEW TOURNAMENT / CLEAR DATABASE"></label>
+              <div class="flex flex-wrap gap-2">
+                <button class="admin-control-button" onclick="confirmAdminReset('admin_reset_combat','RESET COMBAT')">Reset combat • Keep numbers</button>
+                <button class="admin-control-button" onclick="confirmAdminReset('admin_new_tournament','NEW TOURNAMENT')">Start new tournament</button>
+                <button class="admin-control-button danger" onclick="confirmAdminReset('admin_clear_database','CLEAR DATABASE')">Clear game database</button>
+              </div>
+            </div>
+            <p id="admin-import-status" class="text-sm"></p>
+            <button id="btn-resume-imports" class="admin-control-button" onclick="adminControl('admin_resume_imports')">Resume automatic sheet imports</button>
+          </div>
           <!-- ADMIN TAB 1: LOG SALES & SHEET RECONCILIATION -->
-          <div id="admintab-sales" class="space-y-3.5">
+          <div id="admintab-sales" class="hidden space-y-3.5">
             <div class="flex items-center justify-between gap-2">
               <label class="text-[11px] font-bold uppercase tracking-wider text-zinc-300">Select Store</label>
               <button id="btn-admin-sync-sheet" type="button" class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[10px] font-extrabold uppercase">
@@ -590,7 +639,7 @@
           </div>
 
           <!-- ADMIN TAB 2: EVENT LIFECYCLE, ENABLED DAYS & BONUS ROUNDS -->
-          <div id="admintab-lifecycle" class="hidden space-y-3.5 text-xs">
+          <div id="admintab-lifecycle" class="space-y-3.5 text-xs">
             <div class="p-3 rounded-xl bg-arena-bg border border-arena-border space-y-2">
               <div class="text-[10px] font-bold uppercase tracking-wider text-amber-300">Daily Event Controls</div>
               <div id="admin-event-timestamps-info" class="text-[11px] text-zinc-300 space-y-0.5 font-mono"></div>

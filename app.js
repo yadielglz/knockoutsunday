@@ -397,6 +397,30 @@ function updateTelemetryTick() {
 }
 
 // Render Full UI
+let previousWorkspaceAdmin = null;
+function updateWorkspaceLayout() {
+  const admin = clientSession.isAdmin;
+  if (previousWorkspaceAdmin !== admin) {
+    clientSession.activeView = admin ? 'admin' : 'arena';
+    previousWorkspaceAdmin = admin;
+  }
+  const panel = document.getElementById('admin-command-panel');
+  const slot = document.getElementById('admin-workspace-slot');
+  const home = document.getElementById('admin-panel-home');
+  if (admin && panel.parentElement !== slot) slot.appendChild(panel);
+  else if (!admin && panel.previousElementSibling !== home) home.insertAdjacentElement('afterend', panel);
+  for (const view of ['admin', 'arena', 'weekly', 'ledger']) {
+    document.getElementById(`view-section-${view}`).classList.toggle('hidden', clientSession.activeView !== view);
+  }
+  document.querySelectorAll('.view-tab').forEach(button => {
+    const active = button.getAttribute('data-view') === clientSession.activeView;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  document.getElementById('arena-filters-box').classList.toggle('hidden', clientSession.activeView !== 'arena');
+  document.getElementById('store-battle-panel').classList.toggle('hidden', admin);
+}
+
 function renderAll() {
   if (!serverState) return;
   const nowMs = getServerNowMs();
@@ -433,6 +457,7 @@ function renderAll() {
   });
   document.getElementById('admin-lock-icon').textContent = isAdmin ? '🔓' : '🔒';
   document.getElementById('admin-lock-label').textContent = isAdmin ? 'Exit Admin' : 'Admin';
+  updateWorkspaceLayout();
 
   // Store Selector Header Pill
   if (!clientSession.storeId || !storesMap[clientSession.storeId]) {
@@ -1297,14 +1322,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // View Switcher Tabs
   document.querySelectorAll('.view-tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const v = btn.getAttribute('data-view');
-      clientSession.activeView = v;
-      document.getElementById('view-section-arena').classList.toggle('hidden', v !== 'arena');
-      document.getElementById('view-section-weekly').classList.toggle('hidden', v !== 'weekly');
-      document.getElementById('view-section-ledger').classList.toggle('hidden', v !== 'ledger');
-      document.getElementById('arena-filters-box').classList.toggle('hidden', v !== 'arena');
+      const view = btn.getAttribute('data-view');
+      if (view === 'admin' && !clientSession.isAdmin) return;
+      clientSession.activeView = view;
+      updateWorkspaceLayout();
     });
   });
 

@@ -258,6 +258,9 @@
         <!-- Navigation & Filter Bar -->
         <div class="flex flex-wrap items-center justify-between gap-3 bg-arena-card border border-arena-border px-4 py-3 rounded-2xl">
           <div class="flex flex-wrap items-center gap-1.5">
+            <button data-view="admin" class="view-tab admin-only hidden px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition">
+              ⚙️ Admin Desk
+            </button>
             <button data-view="arena" class="view-tab active px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition">
               🥊 Daily Arena (<span id="count-all">9</span>)
             </button>
@@ -282,6 +285,11 @@
               <option value="roster_order">Roster Order</option>
             </select>
           </div>
+        </div>
+
+        <div id="view-section-admin" class="hidden space-y-4">
+          <p class="text-xs text-zinc-400">Manage sales, events, and reviews here. Open Daily Arena whenever you need the store cards.</p>
+          <div id="admin-workspace-slot"></div>
         </div>
 
         <!-- VIEW 1: DAILY ARENA STORE CARDS -->
@@ -478,6 +486,7 @@
         </div>
 
         <!-- ADMIN COMMAND CENTER (Visible when Admin is authenticated) -->
+        <div id="admin-panel-home"></div>
         <div id="admin-command-panel" class="admin-only hidden bg-gradient-to-b from-arena-elevated to-arena-card border-2 border-magenta rounded-2xl p-5 shadow-2xl">
           <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2">
